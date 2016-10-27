@@ -1,0 +1,12 @@
+package: github.com/wangyibin/echoswg
+import:
+- package: github.com/gorilla/schema
+- package: github.com/labstack/echo
+  version: ^2.1.0
+  subpackages:
+  - engine
+  - engine/standard
+  - log
+  - middleware
+- package: gopkg.in/go-playground/validator.v8
+  version: ^8.18.1
