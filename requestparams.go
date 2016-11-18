@@ -80,6 +80,9 @@ func findRequestBody(inTypes []reflect.Type) reflect.Type {
 		if requestType.Kind() == reflect.Ptr {
 			requestType = requestType.Elem()
 		}
+    if requestType.Name() == "Context" {
+      continue
+    }
 		for i := 0; i < requestType.NumField(); i++ {
 			typeField := requestType.Field(i)
 
