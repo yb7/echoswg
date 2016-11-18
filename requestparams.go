@@ -47,6 +47,9 @@ func addPathAndQueryParams(path string, inType reflect.Type, pathParams *[]Param
 	if requestType.Kind() == reflect.Ptr {
 		requestType = requestType.Elem()
 	}
+  if requestType.Name() == "Context" {
+    return
+  }
 	if requestType.Kind() != reflect.Struct {
 		panic(fmt.Sprintf("request type [%v] must be Struct, but is %v\n", requestType.Name(), requestType.Kind()))
 	}
