@@ -6,17 +6,32 @@ import (
 	"reflect"
 	"runtime"
 	"github.com/labstack/echo"
-	"gopkg.in/go-playground/validator.v8"
+  "github.com/go-playground/locales/en"
+  ut "github.com/go-playground/universal-translator"
+  "gopkg.in/go-playground/validator.v9"
+  en_translations "gopkg.in/go-playground/validator.v9/translations/en"
 	"errors"
 	"github.com/gorilla/schema"
 	"time"
+  "strings"
 )
 
-var validate *validator.Validate
+var (
+  uni      *ut.UniversalTranslator
+  validate *validator.Validate
+  trans    ut.Translator
+)
 
 func init() {
-	config := &validator.Config{TagName: "validate"}
-	validate = validator.New(config)
+  en := en.New()
+  uni = ut.New(en, en)
+
+  // this is usually know or extracted from http 'Accept-Language' header
+  // also see uni.FindTranslator(...)
+  trans, _ = uni.GetTranslator("en")
+
+  validate = validator.New()
+  en_translations.RegisterDefaultTranslations(validate, trans)
 }
 
 // BuildEchoHandler func
@@ -149,14 +164,26 @@ func newType(fullRequestPath string, typ reflect.Type, c echo.Context) (reflect.
 			}
 		}
 	}
-	err = validate.Struct(requestObj.Interface())
-	return requestObj, err
+	if err = validate.Struct(requestObj.Interface()); err != nil {
+    // translate all error at once
+    errs := err.(validator.ValidationErrors)
+
+    // returns a map with key = namespace & value = translated error
+    return requestObj, &TranslatedValidationErrors {
+      Data: errs.Translate(trans),
+    }
+  }
+	return requestObj, nil
 }
 
-//func setValue(field reflect.Value, name string, value string) error {
-//	v, err := typeconv.ToTargetType(field.Type(), value)
-//	fmt.Printf("setValue [%s] -> %s(%v)\n", name, v, v.Type())
-//	field.Set(v)
-//
-//	return err
-//}
+type TranslatedValidationErrors struct {
+  Data validator.ValidationErrorsTranslations
+}
+
+func (e *TranslatedValidationErrors) Error() {
+  var msg []string
+  for k, v := range e.Data {
+    msg = append(msg, fmt.Sprintf("%s: %s", k, v))
+  }
+  return strings.Join(msg, "\n")
+}

@@ -8,5 +8,6 @@ import:
   - engine/standard
   - log
   - middleware
-- package: gopkg.in/go-playground/validator.v8
-  version: ^8.18.1
+- package: gopkg.in/go-playground/validator.v9
+  version: ^9.3.0
+  repo: https://github.com/go-playground/validator
