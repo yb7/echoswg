@@ -180,7 +180,7 @@ type TranslatedValidationErrors struct {
   Data validator.ValidationErrorsTranslations
 }
 
-func (e *TranslatedValidationErrors) Error() string {
+func (e TranslatedValidationErrors) Error() string {
   var msg []string
   for k, v := range e.Data {
     msg = append(msg, fmt.Sprintf("%s: %s", k, v))
