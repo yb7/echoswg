@@ -169,7 +169,7 @@ func newType(fullRequestPath string, typ reflect.Type, c echo.Context) (reflect.
     errs := err.(validator.ValidationErrors)
 
     // returns a map with key = namespace & value = translated error
-    return requestObj, &TranslatedValidationErrors {
+    return requestObj, TranslatedValidationErrors {
       Data: errs.Translate(trans),
     }
   }
