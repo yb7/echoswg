@@ -58,17 +58,21 @@ func addPathAndQueryParams(path string, inType reflect.Type, pathParams *[]Param
 		typeField := requestType.Field(i)
 
 		if strings.ToUpper(typeField.Name) != "BODY" {
-			param := Param{Name: typeField.Name, Type: typeField.Type, Required: typeField.Type.Kind() != reflect.Ptr}
-			if !param.Required {
-				param.Type = param.Type.Elem()
-			}
-			if containsIgnoreCase(pnames, typeField.Name) {
-				appendToSet(pathParams, &param)
-				// fmt.Printf("\tPath Params %s", param.String())
-			} else {
-				appendToSet(queryParams, &param)
-				// fmt.Printf("\tQuery Params %s", param.String())
-			}
+      if (typeField.Anonymous) {
+        addPathAndQueryParams(path, typeField.Type, pathParams, queryParams)
+      } else {
+        param := Param{Name: typeField.Name, Type: typeField.Type, Required: typeField.Type.Kind() != reflect.Ptr}
+        if !param.Required {
+          param.Type = param.Type.Elem()
+        }
+        if containsIgnoreCase(pnames, typeField.Name) {
+          appendToSet(pathParams, &param)
+          // fmt.Printf("\tPath Params %s", param.String())
+        } else {
+          appendToSet(queryParams, &param)
+          // fmt.Printf("\tQuery Params %s", param.String())
+        }
+      }
 		}
 
 	}
