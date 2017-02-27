@@ -43,8 +43,8 @@ func BuildEchoHandler(fullRequestPath string, handlers []interface{}) echo.Handl
 		StartAt := time.Now()
 
 		var logError = func (err error) error {
-			fmt.Printf("%6s | %3d [%.3fs] | %s\n", c.Request().Method(),
-				c.Response().Status(), time.Now().Sub(StartAt).Seconds(),
+			fmt.Printf("%6s | %3d [%.3fs] | %s\n", c.Request().Method,
+				c.Response().Status, time.Now().Sub(StartAt).Seconds(),
 				fullRequestPath)
 			return err
 		}

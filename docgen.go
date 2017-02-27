@@ -18,7 +18,7 @@ func GenApiDoc(c echo.Context) error {
 
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"basePath": "/",
-			"host":     c.Request().Host(),
+			"host":     c.Request().Host,
 			"swagger":  "2.0",
 			"info": map[string]interface{}{
 				"title":          "Swagger Sample App",

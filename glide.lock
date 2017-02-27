@@ -1,0 +1,56 @@
+hash: 7d3237749ab8301cb06f627019733e7738aa8dbef8a5d4f869cfabfa9f9b7bc1
+updated: 2017-02-27T10:57:29.370521934+08:00
+imports:
+- name: github.com/go-playground/locales
+  version: 273913d3b2ff7127452603d55dd3f6f888e4f268
+  subpackages:
+  - currency
+  - en
+- name: github.com/go-playground/universal-translator
+  version: fc73d0c4bd37070e0d34e3647253565ff7847264
+- name: github.com/gorilla/schema
+  version: 0164a00ab4cd01d814d8cd5bf63fd9fcea30e23b
+- name: github.com/labstack/echo
+  version: 8d504c1b699c757b267255c53b3e5219f9974abc
+- name: github.com/labstack/gommon
+  version: e8995fb26e646187d33cff439b18609cfba23088
+  subpackages:
+  - bytes
+  - color
+  - log
+  - random
+- name: github.com/mattn/go-colorable
+  version: 9056b7a9f2d1f2d96498d6d146acd1f9d5ed3d59
+- name: github.com/mattn/go-isatty
+  version: 66b8e73f3f5cda9f96b69efd03dd3d7fc4a5cdb8
+- name: github.com/mattn/go-runewidth
+  version: d6bea18f789704b5f83375793155289da36a3c7f
+- name: github.com/olekukonko/tablewriter
+  version: bdcc175572fd7abece6c831e643891b9331bc9e7
+- name: github.com/tylerb/graceful
+  version: d72b0151351a13d0421b763b88f791469c4f5dc7
+- name: github.com/valyala/fasttemplate
+  version: 3b874956e03f1636d171bda64b130f9135f42cff
+- name: golang.org/x/crypto
+  version: 9477e0b78b9ac3d0b03822fd95422e2fe07627cd
+  repo: https://github.com/golang/crypto.git
+  subpackages:
+  - acme
+  - acme/autocert
+- name: golang.org/x/net
+  version: 4971afdc2f162e82d185353533d3cf16188a9f4e
+  repo: https://github.com/golang/net.git
+  subpackages:
+  - context
+  - context/ctxhttp
+- name: golang.org/x/sys
+  version: b699b7032584f0953262cb2788a0ca19bb494703
+  repo: https://github.com/golang/sys.git
+  subpackages:
+  - unix
+- name: gopkg.in/go-playground/validator.v9
+  version: 4bd19358521c53f09639f21e2a9d6883d6890f24
+  repo: https://github.com/go-playground/validator
+  subpackages:
+  - translations/en
+testImports: []
