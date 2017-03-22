@@ -14,6 +14,8 @@ import (
 	"github.com/gorilla/schema"
 	"time"
   "strings"
+  "io/ioutil"
+  "bytes"
 )
 
 var (
@@ -36,7 +38,7 @@ func init() {
 
 // BuildEchoHandler func
 func BuildEchoHandler(fullRequestPath string, handlers []interface{}) echo.HandlerFunc {
-	inTypes, _, _ := validateChain(handlers)
+	//inTypes, _, _ := validateChain(handlers)
 
 	return func(c echo.Context) error {
 		// var requestObj reflect.Value
@@ -52,13 +54,13 @@ func BuildEchoHandler(fullRequestPath string, handlers []interface{}) echo.Handl
 		//var c = NewGonextContextFromEcho(echoContext)
 		inParams := make(map[reflect.Type]reflect.Value)
 		inParams[reflect.TypeOf((*echo.Context)(nil)).Elem()] = reflect.ValueOf(c)
-		for _, inType := range inTypes {
-			requestObj, err := newType(fullRequestPath, inType, c)
-			if err != nil {
-				return logError(err)
-			}
-			inParams[inType] = requestObj
-		}
+		//for _, inType := range inTypes {
+		//	requestObj, err := newType(fullRequestPath, inType, c)
+		//	if err != nil {
+		//		return logError(err)
+		//	}
+		//	inParams[inType] = requestObj
+		//}
 
 		var lastHandler interface{}
 		var out []reflect.Value
@@ -69,7 +71,7 @@ func BuildEchoHandler(fullRequestPath string, handlers []interface{}) echo.Handl
 		//}
 		for _, h := range handlers {
 			lastHandler = h
-			out, err = callHandler(h, inParams)
+			out, err = callHandler(h, inParams, c)
 			if err != nil {
 				return logError(err)
 			}
@@ -84,19 +86,23 @@ func BuildEchoHandler(fullRequestPath string, handlers []interface{}) echo.Handl
 	}
 }
 
-func callHandler(handler interface{}, inParams map[reflect.Type]reflect.Value) ([]reflect.Value, error) {
+func callHandler(handler interface{}, inParams map[reflect.Type]reflect.Value, c echo.Context) ([]reflect.Value, error) {
 	handlerRef := reflect.ValueOf(handler)
 	var params []reflect.Value
 	for i := 0; i < handlerRef.Type().NumIn(); i++ {
-		v, ok := inParams[handlerRef.Type().In(i)]
-		if ok {
-			params = append(params, v)
-		} else {
-			msg := fmt.Sprintf("cannot find inParam of [%v]", handlerRef.Type().In(i))
-			fmt.Println(msg)
-			return nil, errors.New(msg)
-		}
-
+    paramType := handlerRef.Type().In(i)
+		v, ok := inParams[paramType]
+    var err error
+    if !ok {
+      v, err = newType(paramType, c)
+      if err != nil {
+        msg := fmt.Sprintf("error in build input param of [%v], %s", paramType, err.Error())
+        fmt.Println(msg)
+        return nil, errors.New(msg)
+      }
+      inParams[paramType] = v
+    }
+    params = append(params, v)
 	}
 	values := handlerRef.Call(params)
 
@@ -118,7 +124,7 @@ func callHandler(handler interface{}, inParams map[reflect.Type]reflect.Value) (
 func isErrorType(v reflect.Value) bool {
 	return v.MethodByName("Error").IsValid()
 }
-func newType(fullRequestPath string, typ reflect.Type, c echo.Context) (reflect.Value, error) {
+func newType(typ reflect.Type, c echo.Context) (reflect.Value, error) {
 	requestType := typ
 	if requestType.Kind() == reflect.Ptr {
 		requestType = requestType.Elem()
@@ -148,8 +154,16 @@ func newType(fullRequestPath string, typ reflect.Type, c echo.Context) (reflect.
         value = reflect.New(field.Type).Interface()
 			}
 
-      if (field.Name == "Body") {
-        err = c.Bind(value)
+      if field.Name == "Body" {
+        buf, err := ioutil.ReadAll(c.Request().Body)
+        if err != nil {
+          return requestObj, err
+        }
+        c.Request().Body = ioutil.NopCloser(bytes.NewBuffer(buf))
+        if err = c.Bind(value); err != nil {
+          return requestObj, err
+        }
+        c.Request().Body = ioutil.NopCloser(bytes.NewBuffer(buf)) // for next handler
       } else {
         err = decoder.Decode(value, pathAndQueryParams)
       }

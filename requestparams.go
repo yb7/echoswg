@@ -92,7 +92,7 @@ func findRequestBody(inTypes []reflect.Type) reflect.Type {
 
 			if strings.ToUpper(typeField.Name) == "BODY" {
 				if requestBody != nil {
-					panic("only one request parameter can have `Body`")
+					fmt.Sprintf("only last body will be show. %v ignored!\n", requestBody)
 				}
 				if typeField.Type.Kind() == reflect.Ptr {
 					requestBody = typeField.Type.Elem()

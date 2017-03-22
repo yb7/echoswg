@@ -1,6 +1,11 @@
 package echoswg
 
-import "strings"
+import (
+  "strings"
+  "net/http"
+  "io/ioutil"
+  "bytes"
+)
 
 type PathNames []string
 // PathNames func
@@ -50,4 +55,15 @@ func lowCamelStr(str string) string {
 		}
 	}
 	return strings.ToLower(string(str[0])) + string(str[1:])
+}
+/**
+ * 对外使用，不要删除
+ */
+func CopyRequestBody(req *http.Request) ([]byte, error) {
+  buf, err := ioutil.ReadAll(req.Body)
+  if err != nil {
+    return nil, err
+  }
+  req.Body = ioutil.NopCloser(bytes.NewBuffer(buf))
+  return buf, nil
 }
