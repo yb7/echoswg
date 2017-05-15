@@ -171,11 +171,14 @@ func newType(typ reflect.Type, c echo.Context) (reflect.Value, error) {
 				return requestObj, err
 			}
 
-			if theType.Kind() == reflect.Ptr {
-				requestObj.Elem().FieldByName(field.Name).Set(reflect.ValueOf(value))
-			} else {
-				requestObj.Elem().FieldByName(field.Name).Set(reflect.ValueOf(value).Elem())
-			}
+			targetField := requestObj.Elem().FieldByName(field.Name)
+      if targetField.CanSet() {
+        if theType.Kind() == reflect.Ptr {
+          targetField.Set(reflect.ValueOf(value))
+        } else {
+          targetField.Set(reflect.ValueOf(value).Elem())
+        }
+      }
 		}
 	}
 	if err = validate.Struct(requestObj.Interface()); err != nil {
