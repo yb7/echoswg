@@ -134,7 +134,10 @@ func newType(typ reflect.Type, c echo.Context) (reflect.Value, error) {
 	pathAndQueryParams := c.QueryParams()
 
 	for _, name := range c.ParamNames() {
-		pathAndQueryParams[name] = []string{c.Param(name)}
+    value := c.Param(name)
+    for _, maybeName := range strings.Split(name, ",") {
+      pathAndQueryParams[maybeName] = []string{value}
+    }
 	}
 	decoder := schema.NewDecoder()
 	decoder.IgnoreUnknownKeys(true)
