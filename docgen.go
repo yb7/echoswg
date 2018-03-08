@@ -39,6 +39,13 @@ func GenApiDoc(title, description string) func(echo.Context) error {
       "paths":       SwaggerPaths,
       "definitions": GlobalTypeDefBuilder.StructDefinitions,
       "tags":        tags,
+      "securityDefinitions": map[string]map[string]string {
+        "api_key": {
+          "type": "apiKey",
+          "name": "ACCESS_TOKEN",
+          "in": "header",
+        },
+      },
     })
   }
 }

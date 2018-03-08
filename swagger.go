@@ -81,6 +81,11 @@ func BuildSwaggerPath(pathDefine *SwaggerPathDefine) *SwaggerPath {
 					"description": "Interal Server Error",
 				},
 			},
+			"security": []map[string]interface{} {
+			  {
+			    "api_key": []string{},
+        },
+      },
 		},
 	}
 	return &SwaggerPath{Path: resultPath, JSON: json}
