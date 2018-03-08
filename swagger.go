@@ -4,11 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"time"
 )
-
-// SwaggerDefinitions cahce
-var SwaggerDefinitions = make(map[string]interface{})
 
 // SwaggerPaths cache
 var SwaggerPaths = make(map[string]interface{})
@@ -63,9 +59,10 @@ func BuildSwaggerPath(pathDefine *SwaggerPathDefine) *SwaggerPath {
 		"description": "successful operation",
 	}
 	if outType != nil {
+    swaggerType := GlobalTypeDefBuilder.Build(outType)
 		successResponse = map[string]interface{}{
 			"description": "successful operation",
-			"schema":      SwaggerEntitySchemaRef(outType),
+			"schema":      swaggerType.ToSwaggerJSON(), //SwaggerEntitySchemaRef(outType),
 		}
 	}
 	requestParam := BuildRequestParam(pathDefine.Path, inTypes)
@@ -86,157 +83,13 @@ func BuildSwaggerPath(pathDefine *SwaggerPathDefine) *SwaggerPath {
 			},
 		},
 	}
-
-	if requestParam.RequestBody != nil {
-		MountSwaggerDefinition(requestParam.RequestBody)
-	}
-	if outType != nil {
-		MountSwaggerDefinition(outType)
-	}
 	return &SwaggerPath{Path: resultPath, JSON: json}
 }
 
-func propertiesOfEntity(bodyType reflect.Type) map[string]interface{} {
-	properties := make(map[string]interface{})
-	requiredFields := []string{}
-	for i := 0; i < bodyType.NumField(); i++ {
-		field := bodyType.Field(i)
-		propertyName := lowCamelStr(field.Name)
-		fieldType := field.Type
-		if field.Type.Kind() == reflect.Ptr {
-			fieldType = field.Type.Elem()
-		} else {
-			requiredFields = append(requiredFields, propertyName)
-		}
-		//fmt.Printf("property[%s] fieldType[%v] kind[%v]\n", propertyName, fieldType, fieldType.Kind())
-		typ, format := GoTypeToSwaggerType(fieldType)
 
-		description := field.Tag.Get("desc")
-
-		switch typ {
-		case "array":
-			prefix := "type"
-			if format[0] == '#' {
-				prefix = "$ref"
-			}
-			properties[propertyName] = map[string]interface{}{
-				"type":        "array",
-				"description": description,
-				"items": map[string]interface{}{
-					prefix: format,
-				},
-			}
-		case "object":
-			properties[propertyName] = map[string]interface{}{
-				"description": description,
-				"$ref":        format,
-			}
-		default:
-			properties[propertyName] = map[string]interface{}{
-				"description": description,
-				"type":        typ,
-				"format":      format,
-			}
-		}
-	}
-	return map[string]interface{}{
-		"type":       "object",
-		"required":   requiredFields,
-		"properties": properties,
-	}
-}
-
-// MountSwaggerDefinition func
-func MountSwaggerDefinition(typ reflect.Type) {
-	entityType := typ
-	if entityType.Kind() == reflect.Ptr {
-		entityType = entityType.Elem()
-	}
-	if entityType.Kind() == reflect.Map {
-		return
-	}
-
-	if entityType.Kind() == reflect.Array || entityType.Kind() == reflect.Slice {
-		MountSwaggerDefinition(entityType.Elem())
-		return
-	}
-	if _, ok := SwaggerDefinitions[entityType.Name()]; !ok && entityType.Kind() == reflect.Struct {
-		SwaggerDefinitions[entityType.Name()] = propertiesOfEntity(entityType)
-		for i := 0; i < entityType.NumField(); i++ {
-			field := entityType.Field(i)
-			if field.Type.Kind() == reflect.Struct {
-				MountSwaggerDefinition(field.Type)
-			}
-		}
-	}
-}
-
-// SwaggerEntitySchemaRef used in parameter object and response object
-func SwaggerEntitySchemaRef(inType reflect.Type) map[string]interface{} {
-	entityType := inType
-	if entityType.Kind() == reflect.Ptr {
-		entityType = entityType.Elem()
-	}
-	typ, format := GoTypeToSwaggerType(entityType)
-
-	switch typ {
-	case "array":
-		prefix := "type"
-		if format[0] == '#' {
-			prefix = "$ref"
-		}
-		return map[string]interface{}{
-			"type": "array",
-			"items": map[string]interface{}{
-				prefix: format,
-			},
-		}
-	case "object":
-		return map[string]interface{}{
-			"$ref": format,
-		}
-	default:
-		return map[string]interface{}{
-			"type":   typ,
-			"format": format,
-		}
-	}
-}
-
-var TimeType = reflect.TypeOf((*time.Time)(nil)).Elem()
-
-// GoTypeToSwaggerType func
-// http://swagger.io/specification/#parameterObject
-func GoTypeToSwaggerType(typ reflect.Type) (string, string) {
-	if typ == TimeType {
-		return "string", "string"
-	}
-	switch typ.Kind() {
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32,
-		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uintptr:
-		return "integer", "int32"
-	case reflect.Int64, reflect.Uint64:
-		return "integer", "int64"
-	case reflect.String:
-		return "string", "string"
-	case reflect.Float32:
-		return "number", "float"
-	case reflect.Float64:
-		return "number", "double"
-	case reflect.Bool:
-		return "boolean", "boolean"
-	case reflect.Array, reflect.Slice:
-		t, f := GoTypeToSwaggerType(typ.Elem())
-		format := t
-		if t == "object" {
-			format = f
-		}
-		return "array", format
-	case reflect.Struct:
-		return "object", "#/definitions/" + typ.Name()
-	case reflect.Ptr:
-		return GoTypeToSwaggerType(typ.Elem())
-	default:
-		return "string", "string"
-	}
+func getRootOfPtr(typ reflect.Type) reflect.Type {
+  if typ.Kind() == reflect.Ptr {
+    return getRootOfPtr(typ.Elem())
+  }
+  return typ
 }

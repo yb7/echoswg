@@ -31,13 +31,14 @@ func (p *Param) String() string {
 
 // ToSwaggerJSON func
 func (p *Param) ToSwaggerJSON(position string) map[string]interface{} {
-	typ, format := GoTypeToSwaggerType(p.Type)
+	//typ, format := GoTypeToSwaggerType(p.Type)
+	t := GlobalTypeDefBuilder.ToSwaggerType(p.Type)
 	return map[string]interface{}{
-		"name":        lowCamelStr(p.Name),
+		"name":        p.Name,
 		"in":          position,
-		"format":      format,
+		"format":      t.Format,
 		"required":    p.Required,
-		"type":        typ,
+		"type":        t.Type,
 		"description": p.Description,
 	}
 }
@@ -61,7 +62,8 @@ func addPathAndQueryParams(path string, inType reflect.Type, pathParams *[]Param
       if (typeField.Anonymous) {
         addPathAndQueryParams(path, typeField.Type, pathParams, queryParams)
       } else {
-        param := Param{Name: typeField.Name, Type: typeField.Type, Required: typeField.Type.Kind() != reflect.Ptr}
+        param := Param{Name: typeField.Name, Type: typeField.Type, Required: typeField.Type.Kind() != reflect.Ptr, Description: typeField.Tag.Get("desc")}
+
         if !param.Required {
           param.Type = param.Type.Elem()
         }
@@ -165,14 +167,13 @@ func (req *RequestParam) ToSwaggerJSON() []map[string]interface{} {
 		parameters = append(parameters, queryParam.ToSwaggerJSON("query"))
 	}
 	if req.RequestBody != nil {
+	  swaggerType := GlobalTypeDefBuilder.Build(req.RequestBody)
+
 		parameters = append(parameters, map[string]interface{}{
 			"in":       "body",
 			"name":     "body",
 			"required": true,
-			"schema":   SwaggerEntitySchemaRef(req.RequestBody),
-			// map[string]string{
-			// 	"$ref": "#/definitions/" + req.RequestBody.Name(),
-			// },
+			"schema":   swaggerType.ToSwaggerJSON(),
 		})
 	}
 	return parameters

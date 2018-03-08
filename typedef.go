@@ -4,54 +4,107 @@ import (
   "reflect"
   "strings"
   "fmt"
+  "time"
 )
 
+var GlobalTypeDefBuilder = NewTypeDefBuilder()
 type TypeDefBuilder struct {
-  RootPath string
   cachedTypes []reflect.Type
   position int
-  StructDefinitions map[reflect.Type]*SwaggerType
-  anonymousTypes map[reflect.Type]string
+  StructDefinitions map[string]map[string]interface{}
+  typeNames map[reflect.Type]string
+  //anonymousTypes map[reflect.Type]string
 }
 
-func NewTypeDefBuilder(rootPath string) *TypeDefBuilder {
+func NewTypeDefBuilder() *TypeDefBuilder {
   return &TypeDefBuilder {
-    RootPath: rootPath,
     cachedTypes: make([]reflect.Type, 0),
     position: 0,
-    StructDefinitions: make(map[reflect.Type]*SwaggerType),
-    anonymousTypes: make(map[reflect.Type]string),
+    StructDefinitions: make(map[string]map[string]interface{}),
+    typeNames: make(map[reflect.Type]string),
   }
 }
+
 func (b *TypeDefBuilder) Build(typ reflect.Type) *SwaggerType {
   swaggerType := b.ToSwaggerType(typ)
 
   for b.position < len(b.cachedTypes) {
     pendingType := b.cachedTypes[b.position]
-    if _, ok := b.StructDefinitions[pendingType]; !ok {
-      b.StructDefinitions[pendingType] = b.ToSwaggerType(pendingType)
+    typeName := b.uniqueStructName(pendingType)
+    if _, ok := b.StructDefinitions[typeName]; !ok {
+      b.StructDefinitions[typeName] = propertiesOfEntity(pendingType)
     }
     b.position += 1
   }
   return swaggerType
 }
 
+func propertiesOfEntity(bodyType reflect.Type) map[string]interface{} {
+  fmt.Printf("propertiesOfEntity: %s\n", bodyType)
+  properties := make(map[string]interface{})
+  requiredFields := []string{}
+  for i := 0; i < bodyType.NumField(); i++ {
+    field := bodyType.Field(i)
+    propertyName := field.Name
+    propertyJsonName := strings.Split(field.Tag.Get("json"), ",")[0]
+    if len(propertyJsonName)> 0 {
+      propertyName = propertyJsonName
+    }
+    swaggerType := GlobalTypeDefBuilder.ToSwaggerType(field.Type)
+
+    if !swaggerType.Optional {
+      requiredFields = append(requiredFields, propertyName)
+    }
+
+    propertyJson := swaggerType.ToSwaggerJSON()
+
+    description := field.Tag.Get("desc")
+    description = strings.TrimSpace(description)
+    if len(description) > 0 {
+      propertyJson["description"] = description
+    }
+
+    properties[propertyName] = propertyJson
+  }
+  return map[string]interface{}{
+    "type":       "object",
+    "required":   requiredFields,
+    "properties": properties,
+  }
+}
+
 
 func (b *TypeDefBuilder) uniqueStructName(typ reflect.Type) string {
+  if existed, ok := b.typeNames[typ]; ok {
+    return  existed
+  }
+
   typeName := typ.Name()
   if len(typeName) == 0 {
-    typeName = fmt.Sprintf("anonymous%02d", len(b.anonymousTypes))
+    typeName = "anonymous"
   }
-  pkgPath := strings.Replace(strings.TrimPrefix(typ.PkgPath(), b.RootPath), "/", "_", -1)
-  pkgPath = strings.Replace(pkgPath, ".", "_", -1)
 
-
-  uniqueName := pkgPath
-  if len(uniqueName) > 0 {
-    uniqueName += "_"
+  //typeName = fmt.Sprintf("anonymous%02d", len(b.anonymousTypes))
+  var getNameSuccess = false
+  var existedCount = 0
+  for !getNameSuccess {
+    var isExisted = false
+    for _, name := range b.typeNames {
+      if name == typeName {
+        isExisted = true
+        existedCount += 1
+        break
+      }
+    }
+    if isExisted {
+      typeName = fmt.Sprintf("%s%02d", typeName, existedCount)
+    } else {
+      getNameSuccess = true
+    }
   }
-  uniqueName += typeName
-  return uniqueName
+
+  b.typeNames[typ] = typeName
+  return typeName
 }
 
 type SwaggerType struct {
@@ -72,11 +125,31 @@ func (t *SwaggerType) String() string {
     return fmt.Sprintf("optional: %t, type: %s, format: %s", t.Optional, t.Type, t.Format)
   }
 }
+
+func (t *SwaggerType) ToSwaggerJSON() map[string]interface{} {
+  switch t.Type {
+  case "array":
+    return map[string]interface{} {
+      "type": "array",
+      "items": t.Items.ToSwaggerJSON(),
+    }
+  case "object": return map[string]interface{} {
+    "$ref": t.Format,
+  }
+  default:
+   return map[string]interface{} {
+      "type": t.Type,
+      "format": t.Format,
+     }
+  }
+}
 func (b *TypeDefBuilder) ToSwaggerType(typ reflect.Type) *SwaggerType {
   v := &SwaggerType{}
   b._toSwaggerType(typ, v)
   return v
 }
+
+var TimeType = reflect.TypeOf((*time.Time)(nil)).Elem()
 func (b *TypeDefBuilder) _toSwaggerType(typ reflect.Type, dest *SwaggerType) {
   if typ == TimeType {
     dest.Type = "string"
@@ -123,6 +196,7 @@ func (b *TypeDefBuilder) _toSwaggerType(typ reflect.Type, dest *SwaggerType) {
     dest.Type = "object"
     dest.Format = "#/definitions/" + b.uniqueStructName(typ)
     b.cachedTypes = append(b.cachedTypes, typ)
+    //fmt.Printf("add type to cache: %s", typ)
     return
   default:
     return
