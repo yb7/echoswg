@@ -1,0 +1,21 @@
+package: github.com/wangyibin/echoswg
+import:
+- package: github.com/gorilla/schema
+- package: github.com/labstack/echo
+  version: ^3.0.3
+- package: github.com/labstack/gommon
+  version: e8995fb26e646187d33cff439b18609cfba23088
+  subpackages:
+  - bytes
+  - color
+  - log
+  - random
+- package: gopkg.in/go-playground/validator.v9
+  version: ^9.3.0
+  repo: https://github.com/go-playground/validator
+- package: golang.org/x/crypto
+  repo: https://github.com/golang/crypto.git
+- package: golang.org/x/net
+  repo: https://github.com/golang/net.git
+- package: golang.org/x/sys
+  repo: https://github.com/golang/sys.git
