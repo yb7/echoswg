@@ -12,7 +12,7 @@ type ApiGroup interface {
 	POST(url string, actions ...interface{})
 	PUT(url string, actions ...interface{})
 	DELETE(url string, actions ...interface{})
-  Use(middleware ...echo.MiddlewareFunc)
+  USE(middleware ...echo.MiddlewareFunc)
 }
 
 type internalApiGroup struct {
@@ -37,7 +37,7 @@ func NewApiGroup(canGroup CanGroup, tag string, prefix string) ApiGroup {
 	return apiGroup
 }
 
-func (g *internalApiGroup) Use(middleware ...echo.MiddlewareFunc) {
+func (g *internalApiGroup) USE(middleware ...echo.MiddlewareFunc) {
   g.echoGroup.Use(middleware...)
 }
 
