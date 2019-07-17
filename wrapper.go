@@ -1,7 +1,7 @@
 package echoswg
 
 import (
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 	"reflect"
 )
 
@@ -55,10 +55,14 @@ func (g *internalApiGroup) DELETE(url string, actions ...interface{}) {
 }
 func (g *internalApiGroup) wrapper(method string, url string, actions []interface{}) (string, echo.HandlerFunc) {
 	var summary, description string
+	var disableLog = false
 	var handlers []interface{}
 	for _, a := range actions {
 		if reflect.TypeOf(a).Kind() == reflect.String {
-			if len(summary) == 0 {
+		  strValue := a.(string)
+		  if strValue == "__LOG_OFF" {
+        disableLog = true
+      } else if len(summary) == 0 {
 				summary = a.(string)
 			} else {
 				description = a.(string)
@@ -71,6 +75,8 @@ func (g *internalApiGroup) wrapper(method string, url string, actions []interfac
 	fullPath := g.urlPrefix + url
 	MountSwaggerPath(&SwaggerPathDefine{Tag: g.tag, Method: method, Path: fullPath,
 		Summary: summary, Description: description, Handlers: handlers})
-	echoHandler := BuildEchoHandler(fullPath, handlers)
+	echoHandler := BuildEchoHandler(fullPath, HandlerConfig{
+	  DisableLog: disableLog,
+  }, handlers)
 	return url, echoHandler
 }

@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"reflect"
 	"runtime"
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
   "github.com/go-playground/locales/en"
   ut "github.com/go-playground/universal-translator"
   "gopkg.in/go-playground/validator.v9"
@@ -36,8 +36,11 @@ func init() {
   en_translations.RegisterDefaultTranslations(validate, trans)
 }
 
+type HandlerConfig struct {
+  DisableLog bool
+}
 // BuildEchoHandler func
-func BuildEchoHandler(fullRequestPath string, handlers []interface{}) echo.HandlerFunc {
+func BuildEchoHandler(fullRequestPath string, config HandlerConfig,  handlers []interface{}) echo.HandlerFunc {
 	//inTypes, _, _ := validateChain(handlers)
 
 	return func(c echo.Context) error {
@@ -45,9 +48,11 @@ func BuildEchoHandler(fullRequestPath string, handlers []interface{}) echo.Handl
 		StartAt := time.Now()
 
 		var logError = func (err error) error {
-			fmt.Printf("%6s | %3d [%.3fs] | %s\n", c.Request().Method,
-				c.Response().Status, time.Now().Sub(StartAt).Seconds(),
-				fullRequestPath)
+		  if !config.DisableLog  {
+        fmt.Printf("%6s | %3d [%.3fs] | %s\n", c.Request().Method,
+          c.Response().Status, time.Now().Sub(StartAt).Seconds(),
+          fullRequestPath)
+      }
 			return err
 		}
 		var err error
