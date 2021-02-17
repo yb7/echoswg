@@ -1,21 +1,21 @@
 package echoswg
 
 import (
-	"fmt"
-	"net/http"
-	"reflect"
-	"runtime"
-	"github.com/labstack/echo/v4"
+  "bytes"
+  "errors"
+  "fmt"
   "github.com/go-playground/locales/en"
   ut "github.com/go-playground/universal-translator"
-  "gopkg.in/go-playground/validator.v9"
-  en_translations "gopkg.in/go-playground/validator.v9/translations/en"
-	"errors"
-	"github.com/gorilla/schema"
-	"time"
-  "strings"
+  "github.com/go-playground/validator/v10"
+  en_translations "github.com/go-playground/validator/v10/translations/en"
+  "github.com/gorilla/schema"
+  "github.com/labstack/echo/v4"
   "io/ioutil"
-  "bytes"
+  "net/http"
+  "reflect"
+  "runtime"
+  "strings"
+  "time"
 )
 
 var (
@@ -39,64 +39,65 @@ func init() {
 type HandlerConfig struct {
   DisableLog bool
 }
+
 // BuildEchoHandler func
-func BuildEchoHandler(fullRequestPath string, config HandlerConfig,  handlers []interface{}) echo.HandlerFunc {
-	//inTypes, _, _ := validateChain(handlers)
+func BuildEchoHandler(fullRequestPath string, config HandlerConfig, handlers []interface{}) echo.HandlerFunc {
+  //inTypes, _, _ := validateChain(handlers)
 
-	return func(c echo.Context) error {
-		// var requestObj reflect.Value
-		StartAt := time.Now()
+  return func(c echo.Context) error {
+    // var requestObj reflect.Value
+    StartAt := time.Now()
 
-		var logError = func (err error) error {
-		  if !config.DisableLog  {
+    var logError = func(err error) error {
+      if !config.DisableLog {
         fmt.Printf("%6s | %3d [%.3fs] | %s\n", c.Request().Method,
           c.Response().Status, time.Now().Sub(StartAt).Seconds(),
           fullRequestPath)
       }
-			return err
-		}
-		var err error
-		//var c = NewGonextContextFromEcho(echoContext)
-		inParams := make(map[reflect.Type]reflect.Value)
-		inParams[reflect.TypeOf((*echo.Context)(nil)).Elem()] = reflect.ValueOf(c)
-		//for _, inType := range inTypes {
-		//	requestObj, err := newType(fullRequestPath, inType, c)
-		//	if err != nil {
-		//		return logError(err)
-		//	}
-		//	inParams[inType] = requestObj
-		//}
+      return err
+    }
+    var err error
+    //var c = NewGonextContextFromEcho(echoContext)
+    inParams := make(map[reflect.Type]reflect.Value)
+    inParams[reflect.TypeOf((*echo.Context)(nil)).Elem()] = reflect.ValueOf(c)
+    //for _, inType := range inTypes {
+    //	requestObj, err := newType(fullRequestPath, inType, c)
+    //	if err != nil {
+    //		return logError(err)
+    //	}
+    //	inParams[inType] = requestObj
+    //}
 
-		var lastHandler interface{}
-		var out []reflect.Value
+    var lastHandler interface{}
+    var out []reflect.Value
 
-		//fmt.Printf("call %s\n", fullRequestPath)
-		//for inParamKey := range inParams {
-		//	fmt.Printf("    in[%s]\n", inParamKey)
-		//}
-		for _, h := range handlers {
-			lastHandler = h
-			out, err = callHandler(h, inParams, c)
-			if err != nil {
-				return logError(err)
-			}
-		}
-		if len(out) > 1 {
-			return logError(fmt.Errorf("return more then one data value is not supported: %s", runtime.FuncForPC(reflect.ValueOf(lastHandler).Pointer()).Name()))
-		} else if len(out) == 0 {
-			return logError(c.NoContent(http.StatusOK))
-		} else {
-			return logError(c.JSON(http.StatusOK, out[0].Interface()))
-		}
-	}
+    //fmt.Printf("call %s\n", fullRequestPath)
+    //for inParamKey := range inParams {
+    //	fmt.Printf("    in[%s]\n", inParamKey)
+    //}
+    for _, h := range handlers {
+      lastHandler = h
+      out, err = callHandler(h, inParams, c)
+      if err != nil {
+        return logError(err)
+      }
+    }
+    if len(out) > 1 {
+      return logError(fmt.Errorf("return more then one data value is not supported: %s", runtime.FuncForPC(reflect.ValueOf(lastHandler).Pointer()).Name()))
+    } else if len(out) == 0 {
+      return logError(c.NoContent(http.StatusOK))
+    } else {
+      return logError(c.JSON(http.StatusOK, out[0].Interface()))
+    }
+  }
 }
 
 func callHandler(handler interface{}, inParams map[reflect.Type]reflect.Value, c echo.Context) ([]reflect.Value, error) {
-	handlerRef := reflect.ValueOf(handler)
-	var params []reflect.Value
-	for i := 0; i < handlerRef.Type().NumIn(); i++ {
+  handlerRef := reflect.ValueOf(handler)
+  var params []reflect.Value
+  for i := 0; i < handlerRef.Type().NumIn(); i++ {
     paramType := handlerRef.Type().In(i)
-		v, ok := inParams[paramType]
+    v, ok := inParams[paramType]
     var err error
     if !ok {
       v, err = newType(paramType, c)
@@ -108,59 +109,59 @@ func callHandler(handler interface{}, inParams map[reflect.Type]reflect.Value, c
       inParams[paramType] = v
     }
     params = append(params, v)
-	}
-	values := handlerRef.Call(params)
+  }
+  values := handlerRef.Call(params)
 
-	var notErrors []reflect.Value
-	var err error
-	for _, value := range values {
-		if value.Interface() != nil {
-			if !isErrorType(value) {
-				inParams[value.Type()] = value
-				notErrors = append(notErrors, value)
-			} else {
-				err = value.Interface().(error)
-			}
-		}
-	}
-	return notErrors, err
+  var notErrors []reflect.Value
+  var err error
+  for _, value := range values {
+    if value.Interface() != nil {
+      if !isErrorType(value) {
+        inParams[value.Type()] = value
+        notErrors = append(notErrors, value)
+      } else {
+        err = value.Interface().(error)
+      }
+    }
+  }
+  return notErrors, err
 }
 
 func isErrorType(v reflect.Value) bool {
-	return v.MethodByName("Error").IsValid()
+  return v.MethodByName("Error").IsValid()
 }
 func newType(typ reflect.Type, c echo.Context) (reflect.Value, error) {
-	requestType := typ
-	if requestType.Kind() == reflect.Ptr {
-		requestType = requestType.Elem()
-	}
-	requestObj := reflect.New(requestType)
+  requestType := typ
+  if requestType.Kind() == reflect.Ptr {
+    requestType = requestType.Elem()
+  }
+  requestObj := reflect.New(requestType)
 
-	pathAndQueryParams := c.QueryParams()
+  pathAndQueryParams := c.QueryParams()
 
-	for _, name := range c.ParamNames() {
+  for _, name := range c.ParamNames() {
     value := c.Param(name)
     for _, maybeName := range strings.Split(name, ",") {
       pathAndQueryParams[maybeName] = []string{value}
     }
-	}
-	decoder := schema.NewDecoder()
-	decoder.IgnoreUnknownKeys(true)
-	err := decoder.Decode(requestObj.Interface(), pathAndQueryParams)
-	if err != nil {
-		return requestObj, err
-	}
-	for i := 0; i < requestType.NumField(); i++ {
-		field := requestType.Field(i)
+  }
+  decoder := schema.NewDecoder()
+  decoder.IgnoreUnknownKeys(true)
+  err := decoder.Decode(requestObj.Interface(), pathAndQueryParams)
+  if err != nil {
+    return requestObj, err
+  }
+  for i := 0; i < requestType.NumField(); i++ {
+    field := requestType.Field(i)
 
     if field.Name == "Body" || field.Anonymous {
-			theType := field.Type
-			var value interface{}
-			if theType.Kind() == reflect.Ptr {
+      theType := field.Type
+      var value interface{}
+      if theType.Kind() == reflect.Ptr {
         value = reflect.New(field.Type.Elem()).Interface()
-			} else {
+      } else {
         value = reflect.New(field.Type).Interface()
-			}
+      }
 
       if field.Name == "Body" {
         buf, err := ioutil.ReadAll(c.Request().Body)
@@ -175,11 +176,11 @@ func newType(typ reflect.Type, c echo.Context) (reflect.Value, error) {
       } else {
         err = decoder.Decode(value, pathAndQueryParams)
       }
-			if err != nil {
-				return requestObj, err
-			}
+      if err != nil {
+        return requestObj, err
+      }
 
-			targetField := requestObj.Elem().FieldByName(field.Name)
+      targetField := requestObj.Elem().FieldByName(field.Name)
       if targetField.CanSet() {
         if theType.Kind() == reflect.Ptr {
           targetField.Set(reflect.ValueOf(value))
@@ -187,18 +188,18 @@ func newType(typ reflect.Type, c echo.Context) (reflect.Value, error) {
           targetField.Set(reflect.ValueOf(value).Elem())
         }
       }
-		}
-	}
-	if err = validate.Struct(requestObj.Interface()); err != nil {
+    }
+  }
+  if err = validate.Struct(requestObj.Interface()); err != nil {
     // translate all error at once
     errs := err.(validator.ValidationErrors)
 
     // returns a map with key = namespace & value = translated error
-    return requestObj, TranslatedValidationErrors {
+    return requestObj, TranslatedValidationErrors{
       Data: errs.Translate(trans),
     }
   }
-	return requestObj, nil
+  return requestObj, nil
 }
 
 type TranslatedValidationErrors struct {
