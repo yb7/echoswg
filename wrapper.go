@@ -55,13 +55,15 @@ func (g *internalApiGroup) DELETE(url string, actions ...interface{}) {
 }
 func (g *internalApiGroup) wrapper(method string, url string, actions []interface{}) (string, echo.HandlerFunc) {
 	var summary, description string
-	var disableLog = false
 	var handlers []interface{}
+  internalHttpTraceEnabled := HttpTraceEnabled
 	for _, a := range actions {
 		if reflect.TypeOf(a).Kind() == reflect.String {
 		  strValue := a.(string)
 		  if strValue == "__LOG_OFF" {
-        disableLog = true
+        internalHttpTraceEnabled = false
+      } else if strValue == "__LOG_ON" {
+        internalHttpTraceEnabled = true
       } else if len(summary) == 0 {
 				summary = a.(string)
 			} else {
@@ -76,7 +78,7 @@ func (g *internalApiGroup) wrapper(method string, url string, actions []interfac
 	MountSwaggerPath(&SwaggerPathDefine{Tag: g.tag, Method: method, Path: fullPath,
 		Summary: summary, Description: description, Handlers: handlers})
 	echoHandler := BuildEchoHandler(fullPath, HandlerConfig{
-	  DisableLog: disableLog,
+	  DisableLog: !internalHttpTraceEnabled,
   }, handlers)
 	return url, echoHandler
 }
