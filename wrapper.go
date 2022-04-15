@@ -13,6 +13,7 @@ type ApiGroup interface {
 	POST(url string, actions ...interface{})
 	PUT(url string, actions ...interface{})
 	DELETE(url string, actions ...interface{})
+	Any(url string, actions ...interface{})
 	USE(middleware ...echo.MiddlewareFunc)
 }
 
