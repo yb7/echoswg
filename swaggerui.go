@@ -4,6 +4,7 @@ import (
 	"embed"
 	"fmt"
 	"html/template"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 )
@@ -16,9 +17,15 @@ type SwaggerConfig struct {
 	Title       string
 	Description string
 	ApiDocUrl   string
+	CdnPrefix   string
 }
 
 func ServeSwagger(e *echo.Echo, config SwaggerConfig) {
+	cdnPrefix := strings.TrimSpace(config.CdnPrefix)
+	cdnPrefix = strings.TrimSuffix(cdnPrefix, "/")
+	if len(cdnPrefix) == 0 {
+		panic(fmt.Sprintf("SwaggerConfig.CdnPrefx must be provided."))
+	}
 
 	t := template.Must(template.ParseFS(SwaggerUiFS, "swagger-ui-4.10.3/*.go.html"))
 	// t := &Template {
@@ -49,7 +56,7 @@ func ServeSwagger(e *echo.Echo, config SwaggerConfig) {
 		if len(config.ApiDocUrl) == 0 {
 			apiDocUrl = prefixed("/swagger/api-docs")
 		}
-		params := map[string]string{"url": apiDocUrl}
+		params := map[string]string{"url": apiDocUrl, "cdnPrefix": cdnPrefix}
 		if err := t.ExecuteTemplate(c.Response().Writer, "index.go.html", params); err != nil {
 			return err
 		}
