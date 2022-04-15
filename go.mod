@@ -4,7 +4,7 @@ go 1.12
 
 require (
 	github.com/go-playground/universal-translator v0.17.0
-	github.com/go-playground/validator/v10 v10.4.1 // indirect
+	github.com/go-playground/validator/v10 v10.4.1
 	github.com/gorilla/schema v1.1.0
 	github.com/labstack/echo/v4 v4.2.0
 	github.com/mattn/go-colorable v0.1.8 // indirect
