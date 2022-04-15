@@ -60,7 +60,7 @@ func ServeSwagger(e *echo.Echo, config SwaggerConfig) {
 	e.GET(prefixed("/swagger/index"), indexHandler)
 	e.GET(prefixed("/swagger/api-docs"), GenApiDoc(config.Title, config.Description))
 	e.GET(prefixed("/swagger"), func(c echo.Context) error {
-		c.Redirect(301, "/swagger/index.html")
+		c.Redirect(301, prefixed("/swagger/index.html"))
 		return nil
 	})
 	e.StaticFS(prefixed("/swagger"), fs)
