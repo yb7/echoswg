@@ -81,6 +81,9 @@ func (g *internalApiGroup) wrapper(method string, url string, actions []interfac
 			handlers = append(handlers, a)
 		}
 	}
+	// TODO: 此处直接关闭，以后优化
+	internalHttpTraceEnabled = false
+
 	SwaggerTags[g.tag] = g.description
 	fullPath := g.urlPrefix + url
 	MountSwaggerPath(&SwaggerPathDefine{Tag: g.tag, Method: method, Path: fullPath,

@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/go-playground/locales/en"
 	ut "github.com/go-playground/universal-translator"
@@ -46,16 +47,16 @@ func BuildEchoHandler(fullRequestPath string, config HandlerConfig, handlers []i
 
 	return func(c echo.Context) error {
 		// var requestObj reflect.Value
-		// StartAt := time.Now()
+		StartAt := time.Now()
 
-		// var logError = func(err error) error {
-		//   if !config.DisableLog {
-		//     fmt.Printf("%6s | %3d [%.3fs] | %s\n", c.Request().Method,
-		//       c.Response().Status, time.Now().Sub(StartAt).Seconds(),
-		//       fullRequestPath)
-		//   }
-		//   return err
-		// }
+		var logError = func(err error) error {
+			if !config.DisableLog {
+				fmt.Printf("%6s | %3d [%.3fs] | %s\n", c.Request().Method,
+					c.Response().Status, time.Now().Sub(StartAt).Seconds(),
+					fullRequestPath)
+			}
+			return err
+		}
 		var err error
 		//var c = NewGonextContextFromEcho(echoContext)
 		inParams := make(map[reflect.Type]reflect.Value)
