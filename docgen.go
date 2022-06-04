@@ -7,6 +7,7 @@ import (
   "github.com/labstack/echo/v4"
 )
 
+// GenApiDoc generate v3 api https://swagger.io/docs/specification/basic-structure/
 func GenApiDoc(title, description, version string) func(echo.Context) error {
   return func(c echo.Context) error {
     var tags []map[string]string
@@ -22,17 +23,19 @@ func GenApiDoc(title, description, version string) func(echo.Context) error {
       docVersion = "0.0.0"
     }
     return c.JSON(http.StatusOK, map[string]interface{}{
-      "basePath": "/",
-      "host":     c.Request().Host,
-      "openapi":  "3.0.0",
+      "servers": []map[string]string{
+        {"url": "/"},
+      },
+      "host":    c.Request().Host,
+      "openapi": "3.0.0",
       "info": map[string]interface{}{
         "title":       title,
         "description": description,
         "version":     docVersion,
       },
-      "paths":       SwaggerPaths,
+      "paths": SwaggerPaths,
 
-      "tags":        tags,
+      "tags": tags,
       "security": []map[string]interface{}{
         {
           "BearerAuth": []string{},
