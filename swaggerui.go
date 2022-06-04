@@ -18,6 +18,7 @@ type SwaggerConfig struct {
 	Description string
 	ApiDocUrl   string
 	CdnPrefix   string
+  Version     string
 }
 
 func ServeSwagger(e *echo.Echo, config SwaggerConfig) {
@@ -64,12 +65,12 @@ func ServeSwagger(e *echo.Echo, config SwaggerConfig) {
 		return nil
 	}
 	e.GET(prefixed("/swagger/index.html"), indexHandler)
-	e.GET(prefixed("/swagger/index"), indexHandler)
-	e.GET(prefixed("/swagger/api-docs"), GenApiDoc(config.Title, config.Description))
-	e.GET(prefixed("/swagger"), func(c echo.Context) error {
-		c.Redirect(301, prefixed("/swagger/index.html"))
-		return nil
-	})
+  e.GET(prefixed("/swagger/index"), indexHandler)
+  e.GET(prefixed("/swagger/api-docs"), GenApiDoc(config.Title, config.Description, config.Version))
+  e.GET(prefixed("/swagger"), func(c echo.Context) error {
+    c.Redirect(301, prefixed("/swagger/index.html"))
+    return nil
+  })
 	e.StaticFS(prefixed("/swagger"), fs)
 }
 

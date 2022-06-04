@@ -2,12 +2,12 @@ package echoswg
 
 import (
 	"net/http"
+  "strings"
 
-	"github.com/labstack/echo/v4"
+  "github.com/labstack/echo/v4"
 )
 
-
-func GenApiDoc(title, description string) func(echo.Context) error {
+func GenApiDoc(title, description, version string) func(echo.Context) error {
   return func(c echo.Context) error {
     var tags []map[string]string
     for tag, desc := range SwaggerTags {
@@ -17,33 +17,34 @@ func GenApiDoc(title, description string) func(echo.Context) error {
       })
     }
 
+    docVersion := strings.TrimSpace(version)
+    if len(docVersion) == 0 {
+      docVersion = "0.0.0"
+    }
     return c.JSON(http.StatusOK, map[string]interface{}{
       "basePath": "/",
       "host":     c.Request().Host,
-      "swagger":  "2.0",
+      "openapi":  "3.0.0",
       "info": map[string]interface{}{
-        "title":          title,
-        "description":    description,
-        //"termsOfService": "http://swagger.io/terms/",
-        //"contact": map[string]string{
-        //  "name":  "API Support",
-        //  "url":   "http://www.swagger.io/support",
-        //  "email": "support@swagger.io",
-        //},
-        //"license": map[string]string{
-        //  "name": "Apache 2.0",
-        //  "url":  "http://www.apache.org/licenses/LICENSE-2.0.html",
-        //},
-        "version": "1.0.1",
+        "title":       title,
+        "description": description,
+        "version":     docVersion,
       },
       "paths":       SwaggerPaths,
       "definitions": GlobalTypeDefBuilder.StructDefinitions,
       "tags":        tags,
-      "securityDefinitions": map[string]map[string]string {
-        "api_key": {
-          "type": "apiKey",
-          "name": "ACCESS_TOKEN",
-          "in": "header",
+      "security": []map[string]interface{}{
+        {
+          "BearerAuth": []string{},
+        },
+      },
+
+      "components": map[string]any{
+        "securitySchemes": map[string]any{
+          "BearerAuth": map[string]any{
+            "type":   "http",
+            "scheme": "bearer",
+          },
         },
       },
     })

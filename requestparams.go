@@ -159,7 +159,7 @@ func printParams(pathParams []Param, queryParams []Param) {
 
 // ToSwaggerJSON func
 func (req *RequestParam) ToSwaggerJSON() []map[string]interface{} {
-	var parameters []map[string]interface{}
+	var parameters = make([]map[string]interface{}, 0)
 	for _, pathParam := range req.PathParams {
 		parameters = append(parameters, pathParam.ToSwaggerJSON("path"))
 	}
