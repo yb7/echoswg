@@ -1,9 +1,9 @@
 package echoswg
 
 import (
+  "fmt"
   "reflect"
   "strings"
-  "fmt"
   "time"
 )
 
@@ -25,8 +25,8 @@ func NewTypeDefBuilder() *TypeDefBuilder {
   }
 }
 
-func (b *TypeDefBuilder) Build(typ reflect.Type) *SwaggerType {
-  swaggerType := b.ToSwaggerType(typ)
+func (b *TypeDefBuilder) Build(typ reflect.Type, tag reflect.StructTag) *SwaggerType {
+  swaggerType := b.ToSwaggerType(typ, tag)
 
   for b.position < len(b.cachedTypes) {
     pendingType := b.cachedTypes[b.position]
@@ -47,10 +47,10 @@ func propertiesOfEntity(bodyType reflect.Type) map[string]interface{} {
     field := bodyType.Field(i)
     propertyName := field.Name
     propertyJsonName := strings.Split(field.Tag.Get("json"), ",")[0]
-    if len(propertyJsonName)> 0 {
+    if len(propertyJsonName) > 0 {
       propertyName = propertyJsonName
     }
-    swaggerType := GlobalTypeDefBuilder.ToSwaggerType(field.Type)
+    swaggerType := GlobalTypeDefBuilder.ToSwaggerType(field.Type, field.Tag)
 
     if !swaggerType.Optional {
       requiredFields = append(requiredFields, propertyName)
@@ -109,9 +109,10 @@ func (b *TypeDefBuilder) uniqueStructName(typ reflect.Type) string {
 
 type SwaggerType struct {
   Optional bool
-  Type string
-  Format string
-  Items *SwaggerType
+  Type     string
+  Format   string
+  Items    *SwaggerType
+  Ext      map[string]any
 }
 
 func (t *SwaggerType) String() string {
@@ -129,31 +130,35 @@ func (t *SwaggerType) String() string {
 func (t *SwaggerType) ToSwaggerJSON() map[string]interface{} {
   switch t.Type {
   case "array":
-    return map[string]interface{} {
-      "type": "array",
+    return mergeMap(t.Ext, map[string]interface{}{
+      "type":  "array",
       "items": t.Items.ToSwaggerJSON(),
+    })
+  case "object":
+    return map[string]interface{}{
+      "$ref": t.Format,
     }
-  case "object": return map[string]interface{} {
-    "$ref": t.Format,
-  }
   default:
-   return map[string]interface{} {
-      "type": t.Type,
+    return mergeMap(t.Ext, map[string]interface{}{
+      "type":   t.Type,
       "format": t.Format,
-     }
+    })
   }
 }
-func (b *TypeDefBuilder) ToSwaggerType(typ reflect.Type) *SwaggerType {
+func (b *TypeDefBuilder) ToSwaggerType(typ reflect.Type, tag reflect.StructTag) *SwaggerType {
   v := &SwaggerType{}
-  b._toSwaggerType(typ, v)
+  b._toSwaggerType(typ, tag, v)
   return v
 }
 
 var TimeType = reflect.TypeOf((*time.Time)(nil)).Elem()
-func (b *TypeDefBuilder) _toSwaggerType(typ reflect.Type, dest *SwaggerType) {
+
+func (b *TypeDefBuilder) _toSwaggerType(typ reflect.Type, tag reflect.StructTag, dest *SwaggerType) {
+
   if typ == TimeType {
     dest.Type = "string"
     dest.Format = "string"
+    dest.Ext = parseValidateTag(dest.Type, tag.Get("validate"))
     return
   }
   switch typ.Kind() {
@@ -161,40 +166,48 @@ func (b *TypeDefBuilder) _toSwaggerType(typ reflect.Type, dest *SwaggerType) {
     reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uintptr:
     dest.Type = "integer"
     dest.Format = "int32"
+    dest.Ext = parseValidateTag(dest.Type, tag.Get("validate"))
     return
   case reflect.Int64, reflect.Uint64:
     dest.Type = "integer"
     dest.Format = "int64"
+    dest.Ext = parseValidateTag(dest.Type, tag.Get("validate"))
     return
   case reflect.String:
     dest.Type = "string"
     dest.Format = "string"
+    dest.Ext = parseValidateTag(dest.Type, tag.Get("validate"))
     return
   case reflect.Float32:
     dest.Type = "number"
     dest.Format = "float"
+    dest.Ext = parseValidateTag(dest.Type, tag.Get("validate"))
     return
   case reflect.Float64:
     dest.Type = "number"
     dest.Format = "double"
+    dest.Ext = parseValidateTag(dest.Type, tag.Get("validate"))
     return
   case reflect.Bool:
     dest.Type = "boolean"
     dest.Format = "boolean"
+    dest.Ext = parseValidateTag(dest.Type, tag.Get("validate"))
     return
   case reflect.Array, reflect.Slice:
     dest.Type = "array"
     itemType := &SwaggerType{}
-    b._toSwaggerType(typ.Elem(), itemType)
+    b._toSwaggerType(typ.Elem(), "", itemType)
     dest.Items = itemType
+    dest.Ext = parseValidateTag(dest.Type, tag.Get("validate"))
     return
   case reflect.Ptr:
     dest.Optional = true
-    b._toSwaggerType(typ.Elem(), dest)
+    b._toSwaggerType(typ.Elem(), "", dest)
+    dest.Ext = parseValidateTag(dest.Type, tag.Get("validate"))
     return
   case reflect.Struct:
     dest.Type = "object"
-    dest.Format = "#/definitions/" + b.uniqueStructName(typ)
+    dest.Format = "#/components/schemas/" + b.uniqueStructName(typ)
     b.cachedTypes = append(b.cachedTypes, typ)
     //fmt.Printf("add type to cache: %s", typ)
     return

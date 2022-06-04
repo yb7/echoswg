@@ -31,7 +31,7 @@ func GenApiDoc(title, description, version string) func(echo.Context) error {
         "version":     docVersion,
       },
       "paths":       SwaggerPaths,
-      "definitions": GlobalTypeDefBuilder.StructDefinitions,
+
       "tags":        tags,
       "security": []map[string]interface{}{
         {
@@ -40,6 +40,7 @@ func GenApiDoc(title, description, version string) func(echo.Context) error {
       },
 
       "components": map[string]any{
+        "schemas": GlobalTypeDefBuilder.StructDefinitions,
         "securitySchemes": map[string]any{
           "BearerAuth": map[string]any{
             "type":   "http",

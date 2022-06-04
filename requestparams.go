@@ -12,17 +12,19 @@ import (
 
 // RequestParam struct
 type RequestParam struct {
-	PathParams  []Param
-	QueryParams []Param
-	RequestBody reflect.Type
+  PathParams     []Param
+  QueryParams    []Param
+  RequestBody    reflect.Type
+  RequestBodyTag reflect.StructTag
 }
 
 // Param struct
 type Param struct {
-	Name        string
-	Type        reflect.Type
-	Description string
-	Required    bool
+  Name        string
+  Type        reflect.Type
+  Tag         reflect.StructTag
+  Required    bool
+  Description string
 }
 
 func (p *Param) String() string {
@@ -31,38 +33,44 @@ func (p *Param) String() string {
 
 // ToSwaggerJSON func
 func (p *Param) ToSwaggerJSON(position string) map[string]interface{} {
-	//typ, format := GoTypeToSwaggerType(p.Type)
-	t := GlobalTypeDefBuilder.ToSwaggerType(p.Type)
-	return map[string]interface{}{
-		"name":        p.Name,
-		"in":          position,
-		"format":      t.Format,
-		"required":    p.Required,
-		"type":        t.Type,
-		"description": p.Description,
-	}
+  //typ, format := GoTypeToSwaggerType(p.Type)
+  t := GlobalTypeDefBuilder.ToSwaggerType(p.Type, p.Tag)
+
+  //https://swagger.io/docs/specification/data-models/data-types/
+
+  return map[string]interface{}{
+    "name": p.Name,
+    "in":   position,
+    "schema": map[string]string{
+      "type":   t.Type,
+      "format": t.Format,
+    },
+    "required":    p.Required,
+    "description": p.Description,
+  }
 }
 
 func addPathAndQueryParams(path string, inType reflect.Type, pathParams *[]Param, queryParams *[]Param) {
-	requestType := inType
-	if requestType.Kind() == reflect.Ptr {
-		requestType = requestType.Elem()
-	}
+  requestType := inType
+  if requestType.Kind() == reflect.Ptr {
+    requestType = requestType.Elem()
+  }
   if requestType.Name() == "Context" {
     return
   }
-	if requestType.Kind() != reflect.Struct {
-		panic(fmt.Sprintf("request type [%v] must be Struct, but is %v\n", requestType.Name(), requestType.Kind()))
-	}
-	pnames := ParsePathNames(path)
-	for i := 0; i < requestType.NumField(); i++ {
-		typeField := requestType.Field(i)
+  if requestType.Kind() != reflect.Struct {
+    panic(fmt.Sprintf("request type [%v] must be Struct, but is %v\n", requestType.Name(), requestType.Kind()))
+  }
+  pnames := ParsePathNames(path)
+  for i := 0; i < requestType.NumField(); i++ {
+    typeField := requestType.Field(i)
 
-		if strings.ToUpper(typeField.Name) != "BODY" {
-      if (typeField.Anonymous) {
+    if strings.ToUpper(typeField.Name) != "BODY" {
+      if typeField.Anonymous {
         addPathAndQueryParams(path, typeField.Type, pathParams, queryParams)
       } else {
-        param := Param{Name: typeField.Name, Type: typeField.Type, Required: typeField.Type.Kind() != reflect.Ptr, Description: typeField.Tag.Get("desc")}
+        param := Param{Name: typeField.Name, Type: typeField.Type, Required: typeField.Type.Kind() != reflect.Ptr,
+          Tag: typeField.Tag, Description: typeField.Tag.Get("desc")}
 
         if !param.Required {
           param.Type = param.Type.Elem()
@@ -75,36 +83,38 @@ func addPathAndQueryParams(path string, inType reflect.Type, pathParams *[]Param
           // fmt.Printf("\tQuery Params %s", param.String())
         }
       }
-		}
+    }
 
-	}
+  }
 }
-func findRequestBody(inTypes []reflect.Type) reflect.Type {
-	var requestBody reflect.Type
-	for _, inType := range inTypes {
-		requestType := inType
-		if requestType.Kind() == reflect.Ptr {
-			requestType = requestType.Elem()
-		}
+func findRequestBody(inTypes []reflect.Type) (reflect.Type, reflect.StructTag) {
+  var requestBody reflect.Type
+  var requestBodyTag reflect.StructTag
+  for _, inType := range inTypes {
+    requestType := inType
+    if requestType.Kind() == reflect.Ptr {
+      requestType = requestType.Elem()
+    }
     if requestType.Name() == "Context" {
       continue
     }
-		for i := 0; i < requestType.NumField(); i++ {
-			typeField := requestType.Field(i)
+    for i := 0; i < requestType.NumField(); i++ {
+      typeField := requestType.Field(i)
 
-			if strings.ToUpper(typeField.Name) == "BODY" {
-				if requestBody != nil {
-					fmt.Sprintf("only last body will be show. %v ignored!\n", requestBody)
-				}
-				if typeField.Type.Kind() == reflect.Ptr {
-					requestBody = typeField.Type.Elem()
-				} else {
-					requestBody = typeField.Type
-				}
-			}
-		}
+      if strings.ToUpper(typeField.Name) == "BODY" {
+        requestBodyTag = typeField.Tag
+        if requestBody != nil {
+          fmt.Sprintf("only last body will be show. %v ignored!\n", requestBody)
+        }
+        if typeField.Type.Kind() == reflect.Ptr {
+          requestBody = typeField.Type.Elem()
+        } else {
+          requestBody = typeField.Type
+        }
+      }
+    }
 	}
-	return requestBody
+  return requestBody, requestBodyTag
 }
 func appendToSet(set *[]Param, newOne *Param) {
 	for _, e := range *set {
@@ -117,18 +127,18 @@ func appendToSet(set *[]Param, newOne *Param) {
 
 // BuildRequestParam func
 func BuildRequestParam(path string, inTypes []reflect.Type) *RequestParam {
-	if len(inTypes) == 0 {
-		return &RequestParam{}
-	}
-	var pathParams []Param
-	var queryParams []Param
-	for _, inType := range inTypes {
-		addPathAndQueryParams(path, inType, &pathParams, &queryParams)
-	}
-	printParams(pathParams, queryParams)
+  if len(inTypes) == 0 {
+    return &RequestParam{}
+  }
+  var pathParams []Param
+  var queryParams []Param
+  for _, inType := range inTypes {
+    addPathAndQueryParams(path, inType, &pathParams, &queryParams)
+  }
+  printParams(pathParams, queryParams)
 
-	requestBody := findRequestBody(inTypes)
-	return &RequestParam{PathParams: pathParams, QueryParams: queryParams, RequestBody: requestBody}
+  requestBody, requestBodyTag := findRequestBody(inTypes)
+  return &RequestParam{PathParams: pathParams, QueryParams: queryParams, RequestBody: requestBody, RequestBodyTag: requestBodyTag}
 }
 
 func printParams(pathParams []Param, queryParams []Param) {
@@ -167,7 +177,7 @@ func (req *RequestParam) ToSwaggerJSON() []map[string]interface{} {
 		parameters = append(parameters, queryParam.ToSwaggerJSON("query"))
 	}
 	if req.RequestBody != nil {
-	  swaggerType := GlobalTypeDefBuilder.Build(req.RequestBody)
+    swaggerType := GlobalTypeDefBuilder.Build(req.RequestBody, req.RequestBodyTag)
 
 		parameters = append(parameters, map[string]interface{}{
 			"in":       "body",

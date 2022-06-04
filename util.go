@@ -1,10 +1,10 @@
 package echoswg
 
 import (
-  "strings"
-  "net/http"
-  "io/ioutil"
   "bytes"
+  "io/ioutil"
+  "net/http"
+  "strings"
 )
 
 type PathNames []string
@@ -66,4 +66,14 @@ func CopyRequestBody(req *http.Request) ([]byte, error) {
   }
   req.Body = ioutil.NopCloser(bytes.NewBuffer(buf))
   return buf, nil
+}
+
+func mergeMap(inputs ...map[string]any) map[string]any {
+  m := make(map[string]any)
+  for _, input := range inputs {
+    for k, v := range input {
+      m[k] = v
+    }
+  }
+  return m
 }
