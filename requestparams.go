@@ -168,23 +168,27 @@ func printParams(pathParams []Param, queryParams []Param) {
 }
 
 // ToSwaggerJSON func
-func (req *RequestParam) ToSwaggerJSON() []map[string]interface{} {
-	var parameters = make([]map[string]interface{}, 0)
-	for _, pathParam := range req.PathParams {
-		parameters = append(parameters, pathParam.ToSwaggerJSON("path"))
-	}
-	for _, queryParam := range req.QueryParams {
-		parameters = append(parameters, queryParam.ToSwaggerJSON("query"))
-	}
-	if req.RequestBody != nil {
-    swaggerType := GlobalTypeDefBuilder.Build(req.RequestBody, req.RequestBodyTag)
+func (req *RequestParam) ParametersToSwaggerJSON() []map[string]interface{} {
+  var parameters = make([]map[string]interface{}, 0)
+  for _, pathParam := range req.PathParams {
+    parameters = append(parameters, pathParam.ToSwaggerJSON("path"))
+  }
+  for _, queryParam := range req.QueryParams {
+    parameters = append(parameters, queryParam.ToSwaggerJSON("query"))
+  }
+  return parameters
+}
 
-		parameters = append(parameters, map[string]interface{}{
-			"in":       "body",
-			"name":     "body",
-			"required": true,
-			"schema":   swaggerType.ToSwaggerJSON(),
-		})
-	}
-	return parameters
+func (req *RequestParam) RequestBodyToSwaggerJSON() map[string]interface{} {
+  swaggerType := GlobalTypeDefBuilder.Build(req.RequestBody, req.RequestBodyTag)
+
+  return map[string]interface{}{
+    "description": req.RequestBodyTag.Get("desc"),
+    "required":    true,
+    "content": map[string]any{
+      "application/json": map[string]any{
+        "schema": swaggerType.ToSwaggerJSON(),
+      },
+    },
+  }
 }

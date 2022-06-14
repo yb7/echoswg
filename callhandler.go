@@ -156,40 +156,40 @@ func newType(typ reflect.Type, c echo.Context) (reflect.Value, error) {
 		field := requestType.Field(i)
 
 		if field.Name == "Body" || field.Anonymous {
-			theType := field.Type
-			var value interface{}
-			if theType.Kind() == reflect.Ptr {
-				value = reflect.New(field.Type.Elem()).Interface()
-			} else {
-				value = reflect.New(field.Type).Interface()
-			}
+      theType := field.Type
+      var value interface{}
+      if theType.Kind() == reflect.Ptr {
+        value = reflect.New(field.Type.Elem()).Interface()
+      } else {
+        value = reflect.New(field.Type).Interface()
+      }
 
-			if field.Name == "Body" {
-				buf, err := ioutil.ReadAll(c.Request().Body)
-				if err != nil {
-					return requestObj, err
-				}
-				c.Request().Body = ioutil.NopCloser(bytes.NewBuffer(buf))
-				if err = c.Bind(value); err != nil {
-					return requestObj, err
-				}
-				c.Request().Body = ioutil.NopCloser(bytes.NewBuffer(buf)) // for next handler
-			} else {
-				err = decoder.Decode(value, pathAndQueryParams)
-			}
-			if err != nil {
-				return requestObj, err
-			}
+      if field.Name == "Body" {
+        buf, err := ioutil.ReadAll(c.Request().Body)
+        if err != nil {
+          return requestObj, err
+        }
+        c.Request().Body = ioutil.NopCloser(bytes.NewBuffer(buf))
+        if err = c.Bind(value); err != nil {
+          return requestObj, err
+        }
+        c.Request().Body = ioutil.NopCloser(bytes.NewBuffer(buf)) // for next handler
+      } else {
+        err = decoder.Decode(value, pathAndQueryParams)
+      }
+      if err != nil {
+        return requestObj, err
+      }
 
-			targetField := requestObj.Elem().FieldByName(field.Name)
-			if targetField.CanSet() {
-				if theType.Kind() == reflect.Ptr {
-					targetField.Set(reflect.ValueOf(value))
-				} else {
-					targetField.Set(reflect.ValueOf(value).Elem())
-				}
-			}
-		}
+      targetField := requestObj.Elem().FieldByName(field.Name)
+      if targetField.CanSet() {
+        if theType.Kind() == reflect.Ptr {
+          targetField.Set(reflect.ValueOf(value))
+        } else {
+          targetField.Set(reflect.ValueOf(value).Elem())
+        }
+      }
+    }
 	}
 	if err = validate.Struct(requestObj.Interface()); err != nil {
 		// translate all error at once
