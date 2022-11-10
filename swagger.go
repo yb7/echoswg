@@ -30,7 +30,7 @@ type SwaggerPathDefine struct {
 
 // MountSwaggerPath func
 func MountSwaggerPath(pathDefine *SwaggerPathDefine) {
-	fmt.Printf("\n\n%-8s%s\n", pathDefine.Method, pathDefine.Path)
+	fmt.Printf("%-8s%s\n", pathDefine.Method, pathDefine.Path)
 	newPath := BuildSwaggerPath(pathDefine)
 
 	if exist, ok := SwaggerPaths[newPath.Path]; !ok {
