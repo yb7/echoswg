@@ -2,9 +2,10 @@ package echoswg
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
-	"io/ioutil"
+	en_translations "github.com/go-playground/validator/v10/translations/en"
+	zh_translations "github.com/go-playground/validator/v10/translations/zh"
+	"io"
 	"net/http"
 	"reflect"
 	"runtime"
@@ -12,29 +13,24 @@ import (
 	"time"
 
 	"github.com/go-playground/locales/en"
+	"github.com/go-playground/locales/zh"
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
-	en_translations "github.com/go-playground/validator/v10/translations/en"
 	"github.com/gorilla/schema"
 	"github.com/labstack/echo/v4"
 )
 
 var (
-	uni      *ut.UniversalTranslator
-	validate *validator.Validate
-	trans    ut.Translator
+	uni *ut.UniversalTranslator
+	//validate *validator.Validate
+	trans ut.Translator
 )
 
 func init() {
 	en := en.New()
-	uni = ut.New(en, en)
+	zh := zh.New()
+	uni = ut.New(en, zh)
 
-	// this is usually know or extracted from http 'Accept-Language' header
-	// also see uni.FindTranslator(...)
-	trans, _ = uni.GetTranslator("en")
-
-	validate = validator.New()
-	en_translations.RegisterDefaultTranslations(validate, trans)
 }
 
 type HandlerConfig struct {
@@ -103,9 +99,9 @@ func callHandler(handler interface{}, inParams map[reflect.Type]reflect.Value, c
 		if !ok {
 			v, err = newType(paramType, c)
 			if err != nil {
-				msg := fmt.Sprintf("error in build input param of [%v], %s", paramType, err.Error())
-				fmt.Println(msg)
-				return nil, errors.New(msg)
+				//msg := fmt.Sprintf("error in build input param of [%v], %s", paramType, err.Error())
+				//fmt.Println(msg)
+				return nil, err
 			}
 			inParams[paramType] = v
 		}
@@ -156,41 +152,47 @@ func newType(typ reflect.Type, c echo.Context) (reflect.Value, error) {
 		field := requestType.Field(i)
 
 		if field.Name == "Body" || field.Anonymous {
-      theType := field.Type
-      var value interface{}
-      if theType.Kind() == reflect.Ptr {
-        value = reflect.New(field.Type.Elem()).Interface()
-      } else {
-        value = reflect.New(field.Type).Interface()
-      }
+			theType := field.Type
+			var value interface{}
+			if theType.Kind() == reflect.Ptr {
+				value = reflect.New(field.Type.Elem()).Interface()
+			} else {
+				value = reflect.New(field.Type).Interface()
+			}
 
-      if field.Name == "Body" {
-        buf, err := ioutil.ReadAll(c.Request().Body)
-        if err != nil {
-          return requestObj, err
-        }
-        c.Request().Body = ioutil.NopCloser(bytes.NewBuffer(buf))
-        if err = c.Bind(value); err != nil {
-          return requestObj, err
-        }
-        c.Request().Body = ioutil.NopCloser(bytes.NewBuffer(buf)) // for next handler
-      } else {
-        err = decoder.Decode(value, pathAndQueryParams)
-      }
-      if err != nil {
-        return requestObj, err
-      }
+			if field.Name == "Body" {
+				buf, err := io.ReadAll(c.Request().Body)
+				if err != nil {
+					return requestObj, err
+				}
+				c.Request().Body = io.NopCloser(bytes.NewBuffer(buf))
+				if err = c.Bind(value); err != nil {
+					return requestObj, err
+				}
+				c.Request().Body = io.NopCloser(bytes.NewBuffer(buf)) // for next handler
+			} else {
+				err = decoder.Decode(value, pathAndQueryParams)
+			}
+			if err != nil {
+				return requestObj, err
+			}
 
-      targetField := requestObj.Elem().FieldByName(field.Name)
-      if targetField.CanSet() {
-        if theType.Kind() == reflect.Ptr {
-          targetField.Set(reflect.ValueOf(value))
-        } else {
-          targetField.Set(reflect.ValueOf(value).Elem())
-        }
-      }
-    }
+			targetField := requestObj.Elem().FieldByName(field.Name)
+			if targetField.CanSet() {
+				if theType.Kind() == reflect.Ptr {
+					targetField.Set(reflect.ValueOf(value))
+				} else {
+					targetField.Set(reflect.ValueOf(value).Elem())
+				}
+			}
+		}
 	}
+
+	validate := getValidator(c)
+
+	//if len(acceptLanguage) == 0 {
+	//  acceptLanguage :=  c.Request().URL.t("Accept-Language")
+	//}
 	if err = validate.Struct(requestObj.Interface()); err != nil {
 		// translate all error at once
 		errs := err.(validator.ValidationErrors)
@@ -201,6 +203,49 @@ func newType(typ reflect.Type, c echo.Context) (reflect.Value, error) {
 		}
 	}
 	return requestObj, nil
+}
+
+func newValidate() *validator.Validate {
+	validate := validator.New()
+
+	// register function to get tag name from json tags.
+	validate.RegisterTagNameFunc(func(fld reflect.StructField) string {
+		name := strings.SplitN(fld.Tag.Get("json"), ",", 2)[0]
+		if name == "-" {
+			return ""
+		}
+		return name
+	})
+	return validate
+}
+
+func getValidator(c echo.Context) *validator.Validate {
+	for _, local := range acceptLanguage(c) {
+		if strings.HasPrefix(local, "zh") {
+			trans, _ = uni.GetTranslator("zh")
+			validate := newValidate()
+
+			zh_translations.RegisterDefaultTranslations(validate, trans)
+			return validate
+		}
+	}
+	trans, _ = uni.GetTranslator("en")
+
+	validate := newValidate()
+	en_translations.RegisterDefaultTranslations(validate, trans)
+	return validate
+}
+
+// this is usually know or extracted from http 'Accept-Language' header
+// also see uni.FindTranslator(...)
+func acceptLanguage(c echo.Context) []string {
+	var defaultLanguage = []string{"zh"}
+	acceptLanguage := c.Request().Header.Get("Accept-Language")
+	if len(acceptLanguage) == 0 {
+		return defaultLanguage
+	}
+	prefix := strings.Split(acceptLanguage, ";")[0]
+	return strings.Split(prefix, ",")
 }
 
 type TranslatedValidationErrors struct {
