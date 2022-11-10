@@ -49,55 +49,55 @@ func BuildSwaggerPath(pathDefine *SwaggerPathDefine) *SwaggerPath {
 		resultPath = strings.Replace(resultPath, ":"+pname, "{"+pname+"}", -1)
 	}
 
-  inTypes, outType, err := validateChain(pathDefine.Handlers)
+	inTypes, outType, err := validateChain(pathDefine.Handlers)
 
-  if err != nil {
-    panic(err)
-  }
+	if err != nil {
+		panic(err)
+	}
 
-  successResponse := map[string]interface{}{
-    "description": "successful operation",
-  }
-  if outType != nil {
-    swaggerType := GlobalTypeDefBuilder.Build(outType, "")
-    successResponse = map[string]interface{}{
-      "description": "successful operation",
-      "content": map[string]any{
-        "application/json": map[string]any{
-          "schema": swaggerType.ToSwaggerJSON(), //SwaggerEntitySchemaRef(outType),
-        },
-      },
-    }
-  }
-  requestParam := BuildRequestParam(pathDefine.Path, inTypes)
-  methodDef := map[string]interface{}{
-    "tags":        []string{pathDefine.Tag},
-    "summary":     pathDefine.Summary,
-    "description": pathDefine.Description,
-    //"produces":    []string{"application/json"},
-    //"consumes":    []string{"application/json"},
-    "operationId": getOperationID(pathDefine.Handlers),
-    "parameters":  requestParam.ParametersToSwaggerJSON(),
-    "responses": map[string]interface{}{
-      "200": successResponse,
-      "500": map[string]interface{}{
-        "description": "Interal Server Error",
-      },
-    },
-  }
-  if requestParam.RequestBody != nil {
-    methodDef["requestBody"] = requestParam.RequestBodyToSwaggerJSON()
-  }
-  json := map[string]interface{}{
-    strings.ToLower(pathDefine.Method): methodDef,
-  }
+	successResponse := map[string]interface{}{
+		"description": "successful operation",
+	}
+	if outType != nil {
+		swaggerType := GlobalTypeDefBuilder.Build(outType, "")
+		successResponse = map[string]interface{}{
+			"description": "successful operation",
+			"content": map[string]any{
+				"application/json": map[string]any{
+					"schema": swaggerType.ToSwaggerJSON(), //SwaggerEntitySchemaRef(outType),
+				},
+			},
+		}
+	}
+	requestParam := BuildRequestParam(pathDefine.Path, inTypes)
+	methodDef := map[string]interface{}{
+		"tags":        []string{pathDefine.Tag},
+		"summary":     pathDefine.Summary,
+		"description": pathDefine.Description,
+		//"produces":    []string{"application/json"},
+		//"consumes":    []string{"application/json"},
+		"operationId": getOperationID(pathDefine.Handlers),
+		"parameters":  requestParam.ParametersToSwaggerJSON(),
+		"responses": map[string]interface{}{
+			"200": successResponse,
+			"500": map[string]interface{}{
+				"description": "Interal Server Error",
+			},
+		},
+	}
+	if requestParam.RequestBody != nil {
+		methodDef["requestBody"] = requestParam.RequestBodyToSwaggerJSON()
+	}
+	json := map[string]interface{}{
+		strings.ToLower(pathDefine.Method): methodDef,
+	}
 
-  return &SwaggerPath{Path: resultPath, JSON: json}
+	return &SwaggerPath{Path: resultPath, JSON: json}
 }
 
 func getRootOfPtr(typ reflect.Type) reflect.Type {
-  if typ.Kind() == reflect.Ptr {
-    return getRootOfPtr(typ.Elem())
-  }
-  return typ
+	if typ.Kind() == reflect.Ptr {
+		return getRootOfPtr(typ.Elem())
+	}
+	return typ
 }
