@@ -2,9 +2,10 @@ package echoswg
 
 import "os"
 
-var HttpTraceEnabled = true
+var HttpTraceEnabled = false
+
 func init() {
-  if "off" == os.Getenv("ECHOSWG_HTTP_TRACE") {
-    HttpTraceEnabled = false
-  }
+	if "on" == os.Getenv("ECHOSWG_HTTP_TRACE") {
+		HttpTraceEnabled = true
+	}
 }

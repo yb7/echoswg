@@ -1,6 +1,7 @@
 package echoswg
 
 import (
+	"github.com/labstack/gommon/log"
 	"reflect"
 
 	"github.com/labstack/echo/v4"
@@ -62,34 +63,27 @@ func (g *internalApiGroup) Any(url string, actions ...interface{}) {
 	g.echoGroup.Any(g.wrapper("Any", url, actions))
 }
 func (g *internalApiGroup) wrapper(method string, url string, actions []interface{}) (string, echo.HandlerFunc) {
-	var summary, description string
-	var handlers []interface{}
-	internalHttpTraceEnabled := HttpTraceEnabled
-	for _, a := range actions {
-		if reflect.TypeOf(a).Kind() == reflect.String {
-			strValue := a.(string)
-			if strValue == "__LOG_OFF" {
-				internalHttpTraceEnabled = false
-			} else if strValue == "__LOG_ON" {
-				internalHttpTraceEnabled = true
-			} else if len(summary) == 0 {
-				summary = a.(string)
-			} else {
-				description = a.(string)
-			}
-		} else {
-			handlers = append(handlers, a)
-		}
-	}
-	// TODO: 此处直接关闭，以后优化
-	internalHttpTraceEnabled = false
-
 	SwaggerTags[g.tag] = g.description
 	fullPath := g.urlPrefix + url
-	MountSwaggerPath(&SwaggerPathDefine{Tag: g.tag, Method: method, Path: fullPath,
-		Summary: summary, Description: description, Handlers: handlers})
+	pathDef := &SwaggerPathDefine{Tag: g.tag, Method: method, Path: fullPath, InternalHttpTraceEnabled: HttpTraceEnabled}
+	//var summary, description string
+	var handlers []interface{}
+	//internalHttpTraceEnabled := HttpTraceEnabled
+	for _, a := range actions {
+		if reflect.TypeOf(a).Name() == "PathSchemaOption" {
+			opt, _ := a.(PathSchemaOption)
+			opt(pathDef)
+		} else if reflect.TypeOf(a).Kind() == reflect.Func {
+			handlers = append(handlers, a)
+		} else {
+			log.Fatalf("faild to handle param %v", a)
+		}
+	}
+	pathDef.Handlers = handlers
+
+	MountSwaggerPath(pathDef)
 	echoHandler := BuildEchoHandler(fullPath, HandlerConfig{
-		DisableLog: !internalHttpTraceEnabled,
+		DisableLog: !pathDef.InternalHttpTraceEnabled,
 	}, handlers)
 	return url, echoHandler
 }

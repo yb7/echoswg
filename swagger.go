@@ -20,12 +20,14 @@ type SwaggerPath struct {
 
 // SwaggerPathDefine struct
 type SwaggerPathDefine struct {
-	Tag         string
-	Method      string
-	Summary     string
-	Description string
-	Path        string
-	Handlers    []interface{}
+	Tag                      string
+	Method                   string
+	Summary                  string
+	Description              string
+	OperationId              string
+	Path                     string
+	InternalHttpTraceEnabled bool
+	Handlers                 []interface{}
 }
 
 // MountSwaggerPath func
@@ -70,13 +72,18 @@ func BuildSwaggerPath(pathDefine *SwaggerPathDefine) *SwaggerPath {
 		}
 	}
 	requestParam := BuildRequestParam(pathDefine.Path, inTypes)
+
+	operationId := pathDefine.OperationId
+	if len(operationId) == 0 {
+		operationId = getOperationID(pathDefine.Tag, pathDefine.Handlers)
+	}
 	methodDef := map[string]interface{}{
 		"tags":        []string{pathDefine.Tag},
 		"summary":     pathDefine.Summary,
 		"description": pathDefine.Description,
 		//"produces":    []string{"application/json"},
 		//"consumes":    []string{"application/json"},
-		"operationId": getOperationID(pathDefine.Handlers),
+		"operationId": operationId,
 		"parameters":  requestParam.ParametersToSwaggerJSON(),
 		"responses": map[string]interface{}{
 			"200": successResponse,

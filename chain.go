@@ -1,6 +1,8 @@
 package echoswg
 
 import (
+	"fmt"
+	"math/rand"
 	"reflect"
 	"runtime"
 	"strings"
@@ -50,11 +52,16 @@ func getFuncName(handler interface{}) string {
 	arr := strings.Split(fullName, ".")
 	return arr[len(arr)-1]
 }
-func getOperationID(handlers []interface{}) string {
-	var fullName string
-	for _, handler := range handlers {
-		fullName += "_" + getFuncName(handler)
+func getOperationID(tag string, handlers []interface{}) string {
+	var fullName = tag
+	if len(handlers) == 0 {
+		return fullName + fmt.Sprintf(".%d", rand.Int())
 	}
+
+	fullName += "." + strings.TrimSuffix(getFuncName(handlers[len(handlers)-1]), "-fm")
+	//for _, handler := range handlers {
+	//	fullName += "." + strings.TrimSuffix(getFuncName(handler), "-fm")
+	//}
 	return fullName
 }
 
