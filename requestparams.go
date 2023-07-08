@@ -36,13 +36,20 @@ func (p *Param) ToSwaggerJSON(position string) map[string]interface{} {
 	//typ, format := GoTypeToSwaggerType(p.Type)
 	t := GlobalTypeDefBuilder.ToSwaggerType(p.Type, p.Tag)
 	name := p.Name
-	// 如果是query参数，有限以json tag为name
+	required := p.Required
+
 	if position == "query" {
+		// 如果是query参数，有限以json tag为name
 		jsonName := strings.SplitN(p.Tag.Get("json"), ",", 2)[0]
 		if len(jsonName) > 0 {
 			name = jsonName
 		}
+		// 如果是query参数，数组都是required=false
+		if t.Type == "array" {
+			required = false
+		}
 	}
+
 	//https://swagger.io/docs/specification/data-models/data-types/
 
 	return map[string]interface{}{
@@ -52,7 +59,7 @@ func (p *Param) ToSwaggerJSON(position string) map[string]interface{} {
 			"type":   t.Type,
 			"format": t.Format,
 		},
-		"required":    p.Required,
+		"required":    required,
 		"description": p.Description,
 	}
 }
