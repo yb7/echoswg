@@ -3,6 +3,7 @@ package echoswg
 import (
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -40,14 +41,61 @@ func (b *TypeDefBuilder) Build(typ reflect.Type, tag reflect.StructTag) *Swagger
 	return swaggerType
 }
 
+func nameInJsonTag(tag reflect.StructTag) string {
+	return strings.Split(tag.Get("json"), ",")[0]
+}
 func propertiesOfEntity(bodyType reflect.Type) map[string]interface{} {
+	//isT := bodyType.String() == "util.PagedData[*flashnews.cn/systemctl/service.NewsSourceVo]"
 	//fmt.Printf("propertiesOfEntity: %s\n", bodyType)
 	properties := make(map[string]interface{})
 	requiredFields := []string{}
-	for i := 0; i < bodyType.NumField(); i++ {
-		field := bodyType.Field(i)
+	inspectStructType(bodyType, properties, requiredFields)
+	//for i := 0; i < bodyType.NumField(); i++ {
+	//	field := bodyType.Field(i)
+	//	if field.Anonymous {
+	//		inspectAnonymousField(field, properties, requiredFields)
+	//		continue
+	//	}
+	//	propertyName := field.Name
+	//	propertyJsonName := nameInJsonTag(field.Tag) //strings.Split(field.Tag.Get("json"), ",")[0]
+	//	if len(propertyJsonName) > 0 {
+	//		propertyName = propertyJsonName
+	//	}
+	//	if isT {
+	//		fmt.Printf("field [%s]  Anonymous = %v\n", field.Name, field.Anonymous)
+	//	}
+	//
+	//	swaggerType := GlobalTypeDefBuilder.ToSwaggerType(field.Type, field.Tag)
+	//
+	//	if !swaggerType.Optional {
+	//		requiredFields = append(requiredFields, propertyName)
+	//	}
+	//
+	//	propertyJson := swaggerType.ToSwaggerJSON()
+	//
+	//	description := field.Tag.Get("desc")
+	//	description = strings.TrimSpace(description)
+	//	if len(description) > 0 {
+	//		propertyJson["description"] = description
+	//	}
+	//
+	//	properties[propertyName] = propertyJson
+	//}
+	return map[string]interface{}{
+		"type":       "object",
+		"required":   requiredFields,
+		"properties": properties,
+	}
+}
+func inspectStructType(inputType reflect.Type, properties map[string]interface{}, requiredFields []string) {
+	for i := 0; i < inputType.NumField(); i++ {
+		field := inputType.Field(i)
+		if field.Anonymous {
+			inspectStructType(field.Type, properties, requiredFields)
+			continue
+		}
 		propertyName := field.Name
-		propertyJsonName := strings.Split(field.Tag.Get("json"), ",")[0]
+		propertyJsonName := nameInJsonTag(field.Tag) //strings.Split(field.Tag.Get("json"), ",")[0]
 		if len(propertyJsonName) > 0 {
 			propertyName = propertyJsonName
 		}
@@ -67,11 +115,6 @@ func propertiesOfEntity(bodyType reflect.Type) map[string]interface{} {
 
 		properties[propertyName] = propertyJson
 	}
-	return map[string]interface{}{
-		"type":       "object",
-		"required":   requiredFields,
-		"properties": properties,
-	}
 }
 
 func (b *TypeDefBuilder) uniqueStructName(typ reflect.Type) string {
@@ -80,6 +123,25 @@ func (b *TypeDefBuilder) uniqueStructName(typ reflect.Type) string {
 	}
 
 	typeName := typ.Name()
+	if strings.ContainsAny(typeName, "[]*./") {
+		//fmt.Printf("type name = %s\n", typeName)
+
+		// remove packages
+		// PagedData[*flashnews.cn/systemctl/service.NewsSourceVo] => PagedData[*service.NewsSourceVo]
+		m1 := regexp.MustCompile(`([a-zA-Z0-9\.]+/)+`)
+		typeName = m1.ReplaceAllString(typeName, "")
+		//fmt.Printf("    1 = %s\n", typeName)
+		// remove packages again
+		// PagedData[*service.NewsSourceVo] => PagedData[*NewsSourceVo]
+		m2 := regexp.MustCompile(`([a-zA-Z0-9]+\.)+`)
+		typeName = m2.ReplaceAllString(typeName, "")
+		//fmt.Printf("    2 = %s\n", typeName)
+		typeName = strings.ReplaceAll(typeName, "[", "")
+		typeName = strings.ReplaceAll(typeName, "]", "")
+		typeName = strings.ReplaceAll(typeName, "*", "")
+		//fmt.Printf("    3 = %s\n", typeName)
+	}
+
 	if len(typeName) == 0 {
 		typeName = "anonymous"
 	}
@@ -102,6 +164,8 @@ func (b *TypeDefBuilder) uniqueStructName(typ reflect.Type) string {
 			getNameSuccess = true
 		}
 	}
+
+	//fmt.Printf("type name = %s\n", typeName)
 
 	b.typeNames[typ] = typeName
 	return typeName
