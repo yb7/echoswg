@@ -38,12 +38,14 @@ func (p *Param) ToSwaggerJSON(position string) map[string]interface{} {
 	name := p.Name
 	required := p.Required
 
-	if position == "query" {
-		// 如果是query参数，有限以json tag为name
+	if position == "query" || position == "path" {
+		// 如果是query和path参数，优先以json tag为name
 		jsonName := strings.SplitN(p.Tag.Get("json"), ",", 2)[0]
 		if len(jsonName) > 0 {
 			name = jsonName
 		}
+	}
+	if position == "query" {
 		// 如果是query参数，数组都是required=false
 		if t.Type == "array" {
 			required = false
