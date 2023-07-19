@@ -20,11 +20,12 @@ type RequestParam struct {
 
 // Param struct
 type Param struct {
-	Name        string
-	Type        reflect.Type
-	Tag         reflect.StructTag
-	Required    bool
-	Description string
+	Name          string
+	Type          reflect.Type
+	Tag           reflect.StructTag
+	Required      bool
+	Description   string
+	JsonFieldName string
 }
 
 func (p *Param) String() string {
@@ -40,9 +41,9 @@ func (p *Param) ToSwaggerJSON(position string) map[string]interface{} {
 
 	if position == "query" || position == "path" {
 		// 如果是query和path参数，优先以json tag为name
-		jsonName := strings.SplitN(p.Tag.Get("json"), ",", 2)[0]
-		if len(jsonName) > 0 {
-			name = jsonName
+		//jsonName := strings.SplitN(p.Tag.Get("json"), ",", 2)[0]
+		if len(p.JsonFieldName) > 0 {
+			name = p.JsonFieldName
 		}
 	}
 	if position == "query" {
@@ -85,8 +86,9 @@ func addPathAndQueryParams(path string, inType reflect.Type, pathParams *[]Param
 			if typeField.Anonymous {
 				addPathAndQueryParams(path, typeField.Type, pathParams, queryParams)
 			} else {
+				jsonName := strings.SplitN(typeField.Tag.Get("json"), ",", 2)[0]
 				param := Param{Name: typeField.Name, Type: typeField.Type, Required: typeField.Type.Kind() != reflect.Ptr,
-					Tag: typeField.Tag, Description: typeField.Tag.Get("desc")}
+					Tag: typeField.Tag, JsonFieldName: jsonName, Description: typeField.Tag.Get("desc")}
 
 				if !param.Required {
 					param.Type = param.Type.Elem()

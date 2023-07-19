@@ -48,8 +48,8 @@ func propertiesOfEntity(bodyType reflect.Type) map[string]interface{} {
 	//isT := bodyType.String() == "util.PagedData[*flashnews.cn/systemctl/service.NewsSourceVo]"
 	//fmt.Printf("propertiesOfEntity: %s\n", bodyType)
 	properties := make(map[string]interface{})
-	requiredFields := []string{}
-	inspectStructType(bodyType, properties, requiredFields)
+	requiredFields := make([]string, 0)
+	inspectStructType(bodyType, properties, &requiredFields)
 	//for i := 0; i < bodyType.NumField(); i++ {
 	//	field := bodyType.Field(i)
 	//	if field.Anonymous {
@@ -87,7 +87,7 @@ func propertiesOfEntity(bodyType reflect.Type) map[string]interface{} {
 		"properties": properties,
 	}
 }
-func inspectStructType(inputType reflect.Type, properties map[string]interface{}, requiredFields []string) {
+func inspectStructType(inputType reflect.Type, properties map[string]interface{}, requiredFields *[]string) {
 	for i := 0; i < inputType.NumField(); i++ {
 		field := inputType.Field(i)
 		if field.Anonymous {
@@ -102,7 +102,7 @@ func inspectStructType(inputType reflect.Type, properties map[string]interface{}
 		swaggerType := GlobalTypeDefBuilder.ToSwaggerType(field.Type, field.Tag)
 
 		if !swaggerType.Optional {
-			requiredFields = append(requiredFields, propertyName)
+			*requiredFields = append(*requiredFields, propertyName)
 		}
 
 		propertyJson := swaggerType.ToSwaggerJSON()

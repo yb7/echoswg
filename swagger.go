@@ -46,10 +46,6 @@ func MountSwaggerPath(pathDefine *SwaggerPathDefine) {
 
 // BuildSwaggerPath func
 func BuildSwaggerPath(pathDefine *SwaggerPathDefine) *SwaggerPath {
-	resultPath := pathDefine.Path
-	for _, pname := range ParsePathNames(pathDefine.Path) {
-		resultPath = strings.Replace(resultPath, ":"+pname, "{"+pname+"}", -1)
-	}
 
 	inTypes, outType, err := validateChain(pathDefine.Handlers)
 
@@ -72,6 +68,22 @@ func BuildSwaggerPath(pathDefine *SwaggerPathDefine) *SwaggerPath {
 		}
 	}
 	requestParam := BuildRequestParam(pathDefine.Path, inTypes)
+
+	resultPath := pathDefine.Path
+	for _, pname := range ParsePathNames(pathDefine.Path) {
+		replaceTo := pname
+		// 替换成json tag的名字
+		for _, pathParam := range requestParam.PathParams {
+			if pname == pathParam.Name && len(pathParam.JsonFieldName) > 0 {
+				replaceTo = pathParam.JsonFieldName
+				//jsonName := strings.SplitN(pathParam.Tag.Get("json"), ",", 2)[0]
+				//if len(jsonName) > 0 {
+				//	name = jsonName
+				//}
+			}
+		}
+		resultPath = strings.Replace(resultPath, ":"+pname, "{"+replaceTo+"}", -1)
+	}
 
 	operationId := pathDefine.OperationId
 	if len(operationId) == 0 {
