@@ -21,9 +21,11 @@ import (
 )
 
 var (
-	uni *ut.UniversalTranslator
-	//validate *validator.Validate
-	trans ut.Translator
+	uni        *ut.UniversalTranslator
+	zhValidate *validator.Validate
+	zhTrans    ut.Translator
+	enValidate *validator.Validate
+	enTrans    ut.Translator
 )
 
 func init() {
@@ -31,6 +33,13 @@ func init() {
 	zh := zh.New()
 	uni = ut.New(en, zh)
 
+	zhTrans, _ = uni.GetTranslator("zh")
+	zhValidate = newValidate()
+	zh_translations.RegisterDefaultTranslations(zhValidate, zhTrans)
+
+	enTrans, _ = uni.GetTranslator("en")
+	enValidate := newValidate()
+	en_translations.RegisterDefaultTranslations(enValidate, enTrans)
 }
 
 type HandlerConfig struct {
@@ -188,7 +197,7 @@ func newType(typ reflect.Type, c echo.Context) (reflect.Value, error) {
 		}
 	}
 
-	validate := getValidator(c)
+	trans, validate := getValidator(c)
 
 	//if len(acceptLanguage) == 0 {
 	//  acceptLanguage :=  c.Request().URL.t("Accept-Language")
@@ -219,21 +228,13 @@ func newValidate() *validator.Validate {
 	return validate
 }
 
-func getValidator(c echo.Context) *validator.Validate {
+func getValidator(c echo.Context) (ut.Translator, *validator.Validate) {
 	for _, local := range acceptLanguage(c) {
 		if strings.HasPrefix(local, "zh") {
-			trans, _ = uni.GetTranslator("zh")
-			validate := newValidate()
-
-			zh_translations.RegisterDefaultTranslations(validate, trans)
-			return validate
+			return zhTrans, zhValidate
 		}
 	}
-	trans, _ = uni.GetTranslator("en")
-
-	validate := newValidate()
-	en_translations.RegisterDefaultTranslations(validate, trans)
-	return validate
+	return enTrans, enValidate
 }
 
 // this is usually know or extracted from http 'Accept-Language' header
