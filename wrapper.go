@@ -1,8 +1,9 @@
 package echoswg
 
 import (
-	"github.com/labstack/gommon/log"
 	"reflect"
+
+	"github.com/labstack/gommon/log"
 
 	"github.com/labstack/echo/v4"
 )
@@ -78,6 +79,9 @@ func (g *internalApiGroup) wrapper(method string, url string, actions []interfac
 		} else {
 			log.Fatalf("faild to handle param %v", a)
 		}
+	}
+	if len(pathDef.OperationId) > 0 {
+		pathDef.Description += pathDef.Description + " #" + pathDef.OperationId
 	}
 	pathDef.Handlers = handlers
 
