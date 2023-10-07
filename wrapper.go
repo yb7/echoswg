@@ -81,7 +81,7 @@ func (g *internalApiGroup) wrapper(method string, url string, actions []interfac
 		}
 	}
 	if len(pathDef.OperationId) > 0 {
-		pathDef.Description += pathDef.Description + " #" + pathDef.OperationId
+		pathDef.Description += pathDef.Description + " `" + pathDef.OperationId + "`"
 	}
 	pathDef.Handlers = handlers
 
