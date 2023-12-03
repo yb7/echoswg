@@ -227,6 +227,17 @@ func (b *TypeDefBuilder) _toSwaggerType(typ reflect.Type, tag reflect.StructTag,
 		dest.Ext = parseValidateTag(dest.Type, tag.Get("validate"))
 		return
 	}
+
+	validateTag := tag.Get("validate")
+	tags := validateTagToMap(validateTag)
+	hasRequiredTag := false
+	for name, _ := range tags {
+		if name == "required" {
+			hasRequiredTag = true
+			break
+		}
+	}
+
 	switch typ.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uintptr:
@@ -265,6 +276,9 @@ func (b *TypeDefBuilder) _toSwaggerType(typ reflect.Type, tag reflect.StructTag,
 		b._toSwaggerType(typ.Elem(), "", itemType)
 		dest.Items = itemType
 		dest.Ext = parseValidateTag(dest.Type, tag.Get("validate"))
+		if !hasRequiredTag {
+			dest.Optional = true
+		}
 		return
 	case reflect.Ptr:
 		dest.Optional = true
