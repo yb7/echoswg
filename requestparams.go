@@ -46,12 +46,12 @@ func (p *Param) ToSwaggerJSON(position string) map[string]interface{} {
 			name = p.JsonFieldName
 		}
 	}
-	if position == "query" {
-		// 如果是query参数，数组都是required=false
-		if t.Type == "array" {
-			required = false
-		}
+	// if position == "query" {
+	// 如果是query参数，数组都是required=false
+	if t.Type == "array" {
+		required = false
 	}
+	// }
 
 	//https://swagger.io/docs/specification/data-models/data-types/
 
