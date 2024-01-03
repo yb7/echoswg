@@ -39,7 +39,7 @@ func init() {
 	zh_translations.RegisterDefaultTranslations(zhValidate, zhTrans)
 
 	enTrans, _ = uni.GetTranslator("en")
-	enValidate := newValidate()
+	enValidate = newValidate()
 	en_translations.RegisterDefaultTranslations(enValidate, enTrans)
 }
 
