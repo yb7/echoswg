@@ -3,14 +3,15 @@ package echoswg
 import (
 	"bytes"
 	"fmt"
-	en_translations "github.com/go-playground/validator/v10/translations/en"
-	zh_translations "github.com/go-playground/validator/v10/translations/zh"
 	"io"
 	"net/http"
 	"reflect"
 	"runtime"
 	"strings"
 	"time"
+
+	en_translations "github.com/go-playground/validator/v10/translations/en"
+	zh_translations "github.com/go-playground/validator/v10/translations/zh"
 
 	"github.com/go-playground/locales/en"
 	"github.com/go-playground/locales/zh"
@@ -215,7 +216,7 @@ func newType(typ reflect.Type, c echo.Context) (reflect.Value, error) {
 }
 
 func newValidate() *validator.Validate {
-	validate := validator.New()
+	validate := validator.New(validator.WithRequiredStructEnabled())
 
 	// register function to get tag name from json tags.
 	validate.RegisterTagNameFunc(func(fld reflect.StructField) string {
