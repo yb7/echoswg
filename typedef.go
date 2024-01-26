@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -128,12 +129,12 @@ func (b *TypeDefBuilder) uniqueStructName(typ reflect.Type) string {
 
 		// remove packages
 		// PagedData[*flashnews.cn/systemctl/service.NewsSourceVo] => PagedData[*service.NewsSourceVo]
-		m1 := regexp.MustCompile(`([a-zA-Z0-9\.]+/)+`)
+		m1 := regexp.MustCompile(`([a-zA-Z0-9\-\.]+/)+`)
 		typeName = m1.ReplaceAllString(typeName, "")
 		//fmt.Printf("    1 = %s\n", typeName)
 		// remove packages again
 		// PagedData[*service.NewsSourceVo] => PagedData[*NewsSourceVo]
-		m2 := regexp.MustCompile(`([a-zA-Z0-9]+\.)+`)
+		m2 := regexp.MustCompile(`([a-zA-Z0-9\-]+\.)+`)
 		typeName = m2.ReplaceAllString(typeName, "")
 		//fmt.Printf("    2 = %s\n", typeName)
 		typeName = strings.ReplaceAll(typeName, "[", "")
@@ -146,29 +147,30 @@ func (b *TypeDefBuilder) uniqueStructName(typ reflect.Type) string {
 		typeName = "anonymous"
 	}
 
-	//typeName = fmt.Sprintf("anonymous%02d", len(b.anonymousTypes))
-	var getNameSuccess = false
-	var existedCount = 0
-	for !getNameSuccess {
-		var isExisted = false
-		for _, name := range b.typeNames {
-			if name == typeName {
-				isExisted = true
-				existedCount += 1
-				break
-			}
-		}
-		if isExisted {
-			typeName = fmt.Sprintf("%s%02d", typeName, existedCount)
-		} else {
-			getNameSuccess = true
-		}
-	}
-
-	//fmt.Printf("type name = %s\n", typeName)
+	typeName = nextAvailableName(b.typeNames, typeName)
 
 	b.typeNames[typ] = typeName
 	return typeName
+}
+
+func nextAvailableName(exists map[reflect.Type]string, requestName string) string {
+	relatedNames := make(map[string]bool)
+	for _, name := range exists {
+		if strings.HasPrefix(name, requestName) {
+			relatedNames[name] = true
+		}
+	}
+	for i := 0; i < 1000; i++ {
+		nextName := requestName
+		if i > 0 {
+			nextName = fmt.Sprintf("%s%03d", requestName, i)
+		}
+		_, ok := relatedNames[nextName]
+		if !ok {
+			return nextName
+		}
+	}
+	return strconv.Itoa(int(time.Now().UnixMicro()))
 }
 
 type SwaggerType struct {
