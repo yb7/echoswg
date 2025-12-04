@@ -168,7 +168,7 @@ func printParams(pathParams []Param, queryParams []Param) {
 	}
 	table := tablewriter.NewWriter(os.Stdout)
 	// table.SetAutoFormatHeaders(false)
-	table.SetHeader([]string{"PATH", "type", "required", "QUERY", "type", "required"})
+	table.Header([]string{"PATH", "type", "required", "QUERY", "type", "required"})
 	for i := 0; i < len(pathParams) || i < len(queryParams); i++ {
 		var data []string
 		if i >= len(pathParams) {
