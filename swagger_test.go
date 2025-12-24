@@ -127,9 +127,6 @@ func TestAliyunApiGatewayExtensions(t *testing.T) {
     t.Fatalf("bad request path %s", path.Path)
   }
 
-  content, _ := json.Marshal(path.JSON)
-  fmt.Println(string(content))
-
   getMethod, ok := path.JSON["get"].(map[string]interface{})
   if !ok {
     t.Fatal("get method not found")

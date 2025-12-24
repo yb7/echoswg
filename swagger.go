@@ -127,34 +127,8 @@ func BuildSwaggerPath(pathDefine *SwaggerPathDefine) *SwaggerPath {
 			"requestMode": "PASSTHROUGH",
 		}
 		
-		// Add backend configuration if provided
-		if pathDefine.AliyunBackend != nil {
-			serviceType := pathDefine.AliyunBackend.ServiceType
-			if serviceType == "" {
-				serviceType = "HTTP"
-			}
-			backendConfig := map[string]interface{}{
-				"serviceType": serviceType,
-			}
-			if pathDefine.AliyunBackend.ServiceAddress != "" {
-				backendConfig["serviceAddress"] = pathDefine.AliyunBackend.ServiceAddress
-			}
-			if pathDefine.AliyunBackend.ServicePath != "" {
-				backendConfig["servicePath"] = pathDefine.AliyunBackend.ServicePath
-			}
-			if pathDefine.AliyunBackend.ServiceMethod != "" {
-				backendConfig["serviceMethod"] = pathDefine.AliyunBackend.ServiceMethod
-			} else {
-				backendConfig["serviceMethod"] = pathDefine.Method
-			}
-			methodDef["x-aliyun-apigateway-backend"] = backendConfig
-		} else {
-			// Default backend configuration
-			methodDef["x-aliyun-apigateway-backend"] = map[string]interface{}{
-				"serviceType": "HTTP",
-				"serviceMethod": pathDefine.Method,
-			}
-		}
+		// Add backend configuration
+		methodDef["x-aliyun-apigateway-backend"] = buildAliyunBackendConfig(pathDefine.AliyunBackend, pathDefine.Method)
 	}
 	
 	json := map[string]interface{}{
@@ -162,6 +136,33 @@ func BuildSwaggerPath(pathDefine *SwaggerPathDefine) *SwaggerPath {
 	}
 
 	return &SwaggerPath{Path: resultPath, JSON: json}
+}
+
+func buildAliyunBackendConfig(backend *AliyunBackendConfig, defaultMethod string) map[string]interface{} {
+	serviceType := "HTTP"
+	serviceMethod := defaultMethod
+	
+	backendConfig := map[string]interface{}{
+		"serviceType":   serviceType,
+		"serviceMethod": serviceMethod,
+	}
+	
+	if backend != nil {
+		if backend.ServiceType != "" {
+			backendConfig["serviceType"] = backend.ServiceType
+		}
+		if backend.ServiceAddress != "" {
+			backendConfig["serviceAddress"] = backend.ServiceAddress
+		}
+		if backend.ServicePath != "" {
+			backendConfig["servicePath"] = backend.ServicePath
+		}
+		if backend.ServiceMethod != "" {
+			backendConfig["serviceMethod"] = backend.ServiceMethod
+		}
+	}
+	
+	return backendConfig
 }
 
 func getRootOfPtr(typ reflect.Type) reflect.Type {
