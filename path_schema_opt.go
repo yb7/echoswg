@@ -29,3 +29,26 @@ func WithInternalHttpTraceDisabled() PathSchemaOption {
 		pathDefine.InternalHttpTraceEnabled = false
 	}
 }
+
+// WithAliyunBackend sets the Aliyun API Gateway backend configuration
+func WithAliyunBackend(serviceType, serviceAddress, servicePath, serviceMethod string) PathSchemaOption {
+	return func(pathDefine *SwaggerPathDefine) {
+		pathDefine.AliyunBackend = &AliyunBackendConfig{
+			ServiceType:    serviceType,
+			ServiceAddress: serviceAddress,
+			ServicePath:    servicePath,
+			ServiceMethod:  serviceMethod,
+		}
+	}
+}
+
+// WithAliyunHttpBackend sets HTTP backend for Aliyun API Gateway
+func WithAliyunHttpBackend(serviceAddress, servicePath string) PathSchemaOption {
+	return func(pathDefine *SwaggerPathDefine) {
+		pathDefine.AliyunBackend = &AliyunBackendConfig{
+			ServiceType:    "HTTP",
+			ServiceAddress: serviceAddress,
+			ServicePath:    servicePath,
+		}
+	}
+}

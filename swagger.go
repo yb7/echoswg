@@ -18,6 +18,14 @@ type SwaggerPath struct {
 	JSON map[string]interface{}
 }
 
+// AliyunBackendConfig holds Aliyun API Gateway backend configuration
+type AliyunBackendConfig struct {
+	ServiceType    string // HTTP, FUNCTION, MOCK, etc.
+	ServiceAddress string // Backend service address
+	ServicePath    string // Backend service path
+	ServiceMethod  string // Backend service HTTP method
+}
+
 // SwaggerPathDefine struct
 type SwaggerPathDefine struct {
 	Tag                      string
@@ -28,6 +36,7 @@ type SwaggerPathDefine struct {
 	Path                     string
 	InternalHttpTraceEnabled bool
 	Handlers                 []interface{}
+	AliyunBackend            *AliyunBackendConfig
 }
 
 // MountSwaggerPath func
@@ -107,6 +116,47 @@ func BuildSwaggerPath(pathDefine *SwaggerPathDefine) *SwaggerPath {
 	if requestParam.RequestBody != nil {
 		methodDef["requestBody"] = requestParam.RequestBodyToSwaggerJSON()
 	}
+	
+	// Add Aliyun API Gateway extensions if enabled
+	if AliyunApiGatewayEnabled {
+		// Add basic request config
+		methodDef["x-aliyun-apigateway-request-config"] = map[string]interface{}{
+			"requestProtocol": "HTTP",
+			"requestHttpMethod": pathDefine.Method,
+			"requestPath": resultPath,
+			"requestMode": "PASSTHROUGH",
+		}
+		
+		// Add backend configuration if provided
+		if pathDefine.AliyunBackend != nil {
+			serviceType := pathDefine.AliyunBackend.ServiceType
+			if serviceType == "" {
+				serviceType = "HTTP"
+			}
+			backendConfig := map[string]interface{}{
+				"serviceType": serviceType,
+			}
+			if pathDefine.AliyunBackend.ServiceAddress != "" {
+				backendConfig["serviceAddress"] = pathDefine.AliyunBackend.ServiceAddress
+			}
+			if pathDefine.AliyunBackend.ServicePath != "" {
+				backendConfig["servicePath"] = pathDefine.AliyunBackend.ServicePath
+			}
+			if pathDefine.AliyunBackend.ServiceMethod != "" {
+				backendConfig["serviceMethod"] = pathDefine.AliyunBackend.ServiceMethod
+			} else {
+				backendConfig["serviceMethod"] = pathDefine.Method
+			}
+			methodDef["x-aliyun-apigateway-backend"] = backendConfig
+		} else {
+			// Default backend configuration
+			methodDef["x-aliyun-apigateway-backend"] = map[string]interface{}{
+				"serviceType": "HTTP",
+				"serviceMethod": pathDefine.Method,
+			}
+		}
+	}
+	
 	json := map[string]interface{}{
 		strings.ToLower(pathDefine.Method): methodDef,
 	}

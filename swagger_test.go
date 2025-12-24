@@ -93,3 +93,66 @@ func TestGetRootOfPtr(t *testing.T) {
     t.Fatalf("root type is %s", rootType)
   }
 }
+
+func TestAliyunApiGatewayExtensions(t *testing.T) {
+  // Enable Aliyun mode
+  originalValue := AliyunApiGatewayEnabled
+  AliyunApiGatewayEnabled = true
+  defer func() { AliyunApiGatewayEnabled = originalValue }()
+
+  type Resp struct {
+    ID int64
+  }
+  
+  path := BuildSwaggerPath(&SwaggerPathDefine{
+    Tag: "pet",
+    Method: "GET",
+    Summary: "Get pet",
+    Description: "Get a pet by ID",
+    Path: "/pets/:id",
+    Handlers: []interface{}{
+      func(*PetPutA) (*Resp, error) {
+        return nil, nil
+      },
+    },
+    AliyunBackend: &AliyunBackendConfig{
+      ServiceType:    "HTTP",
+      ServiceAddress: "http://backend.example.com",
+      ServicePath:    "/api/pets",
+      ServiceMethod:  "GET",
+    },
+  })
+
+  if path.Path != "/pets/{id}" {
+    t.Fatalf("bad request path %s", path.Path)
+  }
+
+  content, _ := json.Marshal(path.JSON)
+  fmt.Println(string(content))
+
+  getMethod, ok := path.JSON["get"].(map[string]interface{})
+  if !ok {
+    t.Fatal("get method not found")
+  }
+
+  // Check for Aliyun extensions
+  if _, hasRequestConfig := getMethod["x-aliyun-apigateway-request-config"]; !hasRequestConfig {
+    t.Fatal("missing x-aliyun-apigateway-request-config")
+  }
+
+  if _, hasBackend := getMethod["x-aliyun-apigateway-backend"]; !hasBackend {
+    t.Fatal("missing x-aliyun-apigateway-backend")
+  }
+
+  // Verify backend configuration
+  backend := getMethod["x-aliyun-apigateway-backend"].(map[string]interface{})
+  if backend["serviceType"] != "HTTP" {
+    t.Fatalf("expected serviceType HTTP, got %v", backend["serviceType"])
+  }
+  if backend["serviceAddress"] != "http://backend.example.com" {
+    t.Fatalf("expected serviceAddress http://backend.example.com, got %v", backend["serviceAddress"])
+  }
+  if backend["servicePath"] != "/api/pets" {
+    t.Fatalf("expected servicePath /api/pets, got %v", backend["servicePath"])
+  }
+}
