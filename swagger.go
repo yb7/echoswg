@@ -18,6 +18,14 @@ type SwaggerPath struct {
 	JSON map[string]interface{}
 }
 
+// AliyunBackendConfig holds Aliyun API Gateway backend configuration
+type AliyunBackendConfig struct {
+	ServiceType    string // HTTP, FUNCTION, MOCK, etc.
+	ServiceAddress string // Backend service address
+	ServicePath    string // Backend service path
+	ServiceMethod  string // Backend service HTTP method
+}
+
 // SwaggerPathDefine struct
 type SwaggerPathDefine struct {
 	Tag                      string
@@ -28,6 +36,7 @@ type SwaggerPathDefine struct {
 	Path                     string
 	InternalHttpTraceEnabled bool
 	Handlers                 []interface{}
+	AliyunBackend            *AliyunBackendConfig
 }
 
 // MountSwaggerPath func
@@ -107,11 +116,53 @@ func BuildSwaggerPath(pathDefine *SwaggerPathDefine) *SwaggerPath {
 	if requestParam.RequestBody != nil {
 		methodDef["requestBody"] = requestParam.RequestBodyToSwaggerJSON()
 	}
+	
+	// Add Aliyun API Gateway extensions if enabled
+	if AliyunApiGatewayEnabled {
+		// Add basic request config
+		methodDef["x-aliyun-apigateway-request-config"] = map[string]interface{}{
+			"requestProtocol": "HTTP",
+			"requestHttpMethod": pathDefine.Method,
+			"requestPath": resultPath,
+			"requestMode": "PASSTHROUGH",
+		}
+		
+		// Add backend configuration
+		methodDef["x-aliyun-apigateway-backend"] = buildAliyunBackendConfig(pathDefine.AliyunBackend, pathDefine.Method)
+	}
+	
 	json := map[string]interface{}{
 		strings.ToLower(pathDefine.Method): methodDef,
 	}
 
 	return &SwaggerPath{Path: resultPath, JSON: json}
+}
+
+func buildAliyunBackendConfig(backend *AliyunBackendConfig, defaultMethod string) map[string]interface{} {
+	serviceType := "HTTP"
+	serviceMethod := defaultMethod
+	
+	backendConfig := map[string]interface{}{
+		"serviceType":   serviceType,
+		"serviceMethod": serviceMethod,
+	}
+	
+	if backend != nil {
+		if backend.ServiceType != "" {
+			backendConfig["serviceType"] = backend.ServiceType
+		}
+		if backend.ServiceAddress != "" {
+			backendConfig["serviceAddress"] = backend.ServiceAddress
+		}
+		if backend.ServicePath != "" {
+			backendConfig["servicePath"] = backend.ServicePath
+		}
+		if backend.ServiceMethod != "" {
+			backendConfig["serviceMethod"] = backend.ServiceMethod
+		}
+	}
+	
+	return backendConfig
 }
 
 func getRootOfPtr(typ reflect.Type) reflect.Type {
