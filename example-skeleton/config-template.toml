@@ -1,0 +1,12 @@
+[ports]
+http = ":8080"
+
+[db]
+url = "postgres://postgres:postgres@127.0.0.1:5432/app?sslmode=disable"
+
+[redis]
+host = "127.0.0.1:6379"
+password = ""
+username = ""
+clientName = "example-skeleton"
+database = 0
