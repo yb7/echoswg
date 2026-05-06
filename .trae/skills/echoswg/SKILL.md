@@ -1,5 +1,5 @@
 ---
-name: "echoswg-go-api"
+name: "echoswg"
 description: "Builds Go APIs on the custom echoswg framework. Invoke when adding routes, auth, Swagger docs, or bootstrapping an API module in this repository."
 ---
 
@@ -83,6 +83,115 @@ func init() {
 - 每条路由都写唯一的 `WithOperationId(...)`。
 - `WithDescription(...)` 用于补充接口说明；不需要时可省略。
 - 不要在别处重复手工维护 Swagger path。
+
+### 路由操作串联
+
+`g.POST(...)`、`g.GET(...)`、`g.PUT(...)`、`g.DELETE(...)` 接收的参数里，函数类型会按顺序组成一条执行链。框架会从左到右依次调用这些函数，并把上一步返回的非 `error` 结果缓存起来，供下一步按类型自动注入。
+
+例如：
+
+```go
+g.POST(
+    "",
+    security.RequireAuth(security.RoleAnonymous),
+    c.Create,
+    echoswg.WithOperationId("createDemo"),
+    echoswg.WithDescription("create demo"),
+)
+```
+
+它的实际含义是：
+
+1. 先执行 `security.RequireAuth(security.RoleAnonymous)` 返回的函数。
+2. 该函数返回 `security.AuthCtx` 后，框架会把这个值缓存到当前调用链中。
+3. 再执行 `c.Create` 时，如果它的参数列表里声明了 `security.AuthCtx`，框架就会把上一步产出的 `AuthCtx` 自动注入进去。
+4. `WithOperationId(...)`、`WithDescription(...)` 这类 `PathSchemaOption` 只参与 Swagger 元数据构建，不参与运行时执行链。
+
+也就是说，下面这种写法并不是“把 `RequireAuth(...)` 当成普通中间件挂上去”，而是“把它当作链路中的前置函数，让它产出的类型值继续传给后续 handler”。
+
+再看一个更直观的例子：
+
+```go
+g.POST(
+    "",
+    security.RequireAuth(),
+    c.Create,
+    echoswg.WithOperationId("createOrder"),
+)
+
+func (*OrderController) Create(ctx security.AuthCtx, req *struct {
+    Body *service.CreateOrderVo
+}) (*service.OrderVo, error) {
+    return service.Order.Create(ctx, req.Body)
+}
+```
+
+上面的调用链中：
+
+- `RequireAuth()` 负责从请求中解析登录态，并返回 `security.AuthCtx`
+- `c.Create` 负责消费 `security.AuthCtx` 和请求体
+- 请求体 `req` 则不是前一步返回的，而是框架根据 handler 参数类型自动从 path/query/body 构造出来的
+
+生成代码时必须遵循以下规则：
+
+- 需要前置鉴权或上下文构造时，把函数放在业务 handler 前面。
+- 后置 handler 的参数类型必须能被前面步骤的返回值或框架内建注入机制满足。
+- 如果前一步返回某个自定义类型，后一步可以直接声明同类型参数来接收它。
+- 不要把 `WithOperationId(...)`、`WithDescription(...)` 当作可执行 handler，它们只是文档选项。
+- 当链路较长时，优先保证每一步函数职责单一，例如“鉴权 -> 装配上下文 -> 业务处理”。
+
+### 多步链路模板
+
+作为补充特性说明，框架也支持比“鉴权 -> Handler”更长的链路，例如：
+
+- `RequireAuth -> LoadTenant -> CheckPermission -> Handler`
+
+这种写法适合把“认证”“租户上下文装配”“权限校验”“业务处理”拆成多个小步骤，每一步只做一件事，并把结果类型继续传给下一步。
+
+示例：
+
+```go
+g.POST(
+    "/orders",
+    security.RequireAuth(),
+    tenant.LoadTenant,
+    permission.CheckPermission(permission.OrderWrite),
+    c.CreateOrder,
+    echoswg.WithOperationId("createOrder"),
+)
+```
+
+可以把它理解为下面这样的类型流转：
+
+```go
+RequireAuth()        : func(echo.Context) (security.AuthCtx, error)
+LoadTenant           : func(security.AuthCtx) (*tenant.Context, error)
+CheckPermission(...) : func(*tenant.Context) (*tenant.Context, error)
+CreateOrder          : func(*tenant.Context, *CreateOrderReq) (*OrderVo, error)
+```
+
+上面这条链的运行语义是：
+
+1. `RequireAuth()` 先从请求中构造 `security.AuthCtx`
+2. `LoadTenant` 接收 `security.AuthCtx`，查询或装配租户信息，返回 `*tenant.Context`
+3. `CheckPermission(...)` 接收 `*tenant.Context`，完成权限校验，校验通过后继续返回同一个或增强后的上下文对象
+4. `CreateOrder` 最终消费 `*tenant.Context` 和框架自动构造的请求体 `*CreateOrderReq`
+
+需要注意：
+
+- 每一步是否能串起来，关键取决于“后一步的入参类型”能否被前一步返回值满足。
+- 如果某一步只做校验、不产生新类型，最简单的方式是返回原上下文类型本身，例如 `func(ctx *tenant.Context) (*tenant.Context, error)`。
+- 如果某一步需要补充更多信息，也可以返回一个新的聚合上下文类型，再让后续步骤都消费这个新类型。
+- 请求体、路径参数、查询参数仍由框架根据最终 handler 的参数类型自动构造，它们不是必须从前置步骤传递。
+- 这种模式更像“typed pipeline”而不是传统的 Echo middleware；设计时优先考虑“类型是否清晰”而不是“步骤是否越多越好”。
+
+建议只在以下场景使用多步链路：
+
+- 需要复用一段前置逻辑给多个接口
+- 需要把认证、租户、权限、资源装载拆开，提升可读性
+- 需要让不同阶段产出的上下文对象被后续业务直接消费
+
+不建议为了简单接口强行拆很多步；如果只是单纯鉴权后执行业务，`RequireAuth() -> Handler` 往往已经足够清晰。
 
 ## Handler 签名规范
 
