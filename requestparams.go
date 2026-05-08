@@ -89,7 +89,7 @@ func addPathAndQueryParams(path string, inType reflect.Type, pathParams *[]Param
 			} else {
 				jsonName := strings.SplitN(typeField.Tag.Get("json"), ",", 2)[0]
 				param := Param{Name: typeField.Name, Type: typeField.Type, Required: typeField.Type.Kind() != reflect.Ptr,
-					Tag: typeField.Tag, JsonFieldName: jsonName, Description: typeField.Tag.Get("desc")}
+					Tag: typeField.Tag, JsonFieldName: jsonName, Description: descriptionFromTag(typeField.Tag)}
 
 				if !param.Required {
 					param.Type = param.Type.Elem()
@@ -204,7 +204,7 @@ func (req *RequestParam) RequestBodyToSwaggerJSON() map[string]interface{} {
 	swaggerType := GlobalTypeDefBuilder.Build(req.RequestBody, req.RequestBodyTag)
 
 	return map[string]interface{}{
-		"description": req.RequestBodyTag.Get("desc"),
+		"description": descriptionFromTag(req.RequestBodyTag),
 		"required":    true,
 		"content": map[string]any{
 			"application/json": map[string]any{

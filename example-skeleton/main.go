@@ -8,8 +8,9 @@ import (
     "github.com/yb7/echoswg/example-skeleton/db"
     "github.com/yb7/echoswg/example-skeleton/util"
 
-    "github.com/labstack/echo/v4"
-    "github.com/labstack/echo/v4/middleware"
+    "net/http"
+
+    "github.com/labstack/echo/v5/middleware"
     "github.com/yb7/alilog"
     "github.com/yb7/echoswg"
 )
@@ -38,14 +39,16 @@ func main() {
         CdnPrefix:   "https://img.cls.cn/statics/swagger-ui-4.10.3",
     })
 
-    e.Use(middleware.Logger())
+    e.Use(middleware.RequestLogger())
     e.Use(middleware.Gzip())
     e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
         AllowOrigins: []string{"*"},
-        AllowMethods: []string{echo.GET, echo.PUT, echo.POST, echo.DELETE},
+        AllowMethods: []string{http.MethodGet, http.MethodPut, http.MethodPost, http.MethodDelete},
     }))
     e.Use(util.EchoRecover)
 
     alilog.Infof("rest server started at port [%s]", config.C.Ports.Http)
-    e.Logger.Fatal(e.Start(config.C.Ports.Http))
+    if err := e.Start(config.C.Ports.Http); err != nil {
+        alilog.Fatal(err)
+    }
 }

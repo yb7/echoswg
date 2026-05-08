@@ -164,7 +164,7 @@ g.POST(
 可以把它理解为下面这样的类型流转：
 
 ```go
-RequireAuth()        : func(echo.Context) (security.AuthCtx, error)
+RequireAuth()        : func(*echo.Context) (security.AuthCtx, error)
 LoadTenant           : func(security.AuthCtx) (*tenant.Context, error)
 CheckPermission(...) : func(*tenant.Context) (*tenant.Context, error)
 CreateOrder          : func(*tenant.Context, *CreateOrderReq) (*OrderVo, error)
@@ -195,7 +195,7 @@ CreateOrder          : func(*tenant.Context, *CreateOrderReq) (*OrderVo, error)
 
 ## Handler 签名规范
 
-框架会根据 handler 参数类型自动注入 `echo.Context`、构造请求对象、识别 path/query/body，并在返回时自动输出 JSON。
+框架会根据 handler 参数类型自动注入 `*echo.Context`、构造请求对象、识别 path/query/body，并在返回时自动输出 JSON。
 
 ### 常见签名
 
@@ -203,7 +203,7 @@ CreateOrder          : func(*tenant.Context, *CreateOrderReq) (*OrderVo, error)
 
 ```go
 func (*OrderController) Create(ctx security.AuthCtx, req *struct {
-    Body *service.CreateOrderVo `desc:"创建订单请求体"`
+    Body *service.CreateOrderVo `jsonschema_description:"创建订单请求体"`
 }) (*service.OrderVo, error) {
     return service.Order.Create(ctx, req.Body)
 }
@@ -213,7 +213,7 @@ func (*OrderController) Create(ctx security.AuthCtx, req *struct {
 
 ```go
 func (*OrderController) GetByID(ctx security.AuthCtx, req *struct {
-    ID int `json:"id" desc:"订单ID"`
+    ID int `json:"id" jsonschema_description:"订单ID"`
 }) (*service.OrderVo, error) {
     return service.Order.GetByID(ctx, req.ID)
 }
@@ -232,7 +232,7 @@ func (*OrderController) Query(ctx security.AuthCtx, req *service.OrderQueryVo) (
 ```go
 func (*AuthController) Login(req *struct {
     Body *LoginDto
-}, echoCtx echo.Context) (*security.UserPrincipal, error) {
+}, echoCtx *echo.Context) (*security.UserPrincipal, error) {
     // ...
 }
 ```
@@ -248,8 +248,8 @@ func (*AuthController) Login(req *struct {
   - 字段名必须字面量写成 `Body`。
   - 推荐使用指针类型，例如 `Body *CreateOrderVo`。
   - Swagger `requestBody` 也依赖该约定生成。
-- `echo.Context`：
-  - 可作为 handler 参数之一，由框架自动注入。
+- `*echo.Context`：
+  - 可作为 handler 参数之一，由框架自动注入（echo v5 中 `Context` 是结构体，handler 必须用指针）。
 - `security.AuthCtx`：
   - 通过前置的 `security.RequireAuth(...)` 生成并注入。
 
@@ -261,17 +261,21 @@ func (*AuthController) Login(req *struct {
   - 用于请求绑定和 Swagger 字段名展示。
 - `validate`
   - 用于参数校验；框架会自动执行校验并返回翻译后的错误信息。
-- `desc`
-  - 用于 Swagger 参数或请求体描述。
+- `jsonschema_description`（推荐）/ `desc`（兼容写法）
+  - 都用于 Swagger 参数或请求体描述。
+  - 框架在生成 Swagger 时会优先读取 `jsonschema_description`，便于与 `invopop/jsonschema` 等 JSON Schema 生成器复用同一份字段说明；找不到时回退到 `desc`。
+  - 同一字段两个 tag 同时存在时，以 `jsonschema_description` 为准。
 
 示例：
 
 ```go
 type CreateOrderVo struct {
-    Title  string `json:"title" validate:"required" desc:"订单标题"`
-    Amount int    `json:"amount" validate:"required,gte=1" desc:"订单金额"`
+    Title  string `json:"title" validate:"required" jsonschema_description:"订单标题"`
+    Amount int    `json:"amount" validate:"required,gte=1" jsonschema_description:"订单金额"`
 }
 ```
+
+旧项目里仍可继续使用 `desc:"..."`，无需立即改写。
 
 ## 鉴权规范
 
@@ -353,6 +357,7 @@ type orderService struct{}
 package main
 
 import (
+    "net/http"
     "os"
 
     "your/module/config"
@@ -360,8 +365,7 @@ import (
     "your/module/db"
     "your/module/util"
 
-    "github.com/labstack/echo/v4"
-    "github.com/labstack/echo/v4/middleware"
+    "github.com/labstack/echo/v5/middleware"
     "github.com/yb7/alilog"
     "github.com/yb7/echoswg"
 )
@@ -392,19 +396,19 @@ func main() {
         CdnPrefix:   "https://img.cls.cn/statics/swagger-ui-4.10.3",
     })
 
-    e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
-        Format: `${time_rfc3339} ${method} ${uri} ${status} cost:${latency_human} bytes:${bytes_in}->${bytes_out}` + "\n",
-    }))
+    e.Use(middleware.RequestLogger())
     e.Use(middleware.GzipWithConfig(middleware.GzipConfig{Level: 9}))
     e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
         AllowOrigins: []string{"*"},
-        AllowMethods: []string{echo.GET, echo.PUT, echo.POST, echo.DELETE},
+        AllowMethods: []string{http.MethodGet, http.MethodPut, http.MethodPost, http.MethodDelete},
     }))
 
     e.Use(util.EchoRecover)
 
     alilog.Infof("rest server started at port [%s]", config.C.Ports.Http)
-    e.Logger.Fatal(e.Start(config.C.Ports.Http))
+    if err := e.Start(config.C.Ports.Http); err != nil {
+        alilog.Fatal(err)
+    }
 }
 ```
 
@@ -414,7 +418,8 @@ func main() {
 - `util.EchoInstance` 是否已经初始化并挂上全局错误处理。
 - `SwaggerConfig` 的 `Title`、`Description`、`UrlPrefix` 是否符合新项目。
 - `db.InitRueidisClient()`、`db.OpenDB()`、`db.DbMigrate()` 是否与新项目基础设施一致。
-- `middleware.Logger` 的 `Skipper`、CORS 策略、Recover 实现是否需要调整。
+- `middleware.RequestLogger`、CORS 策略、Recover 实现是否需要调整。
+- echo v5 已移除 `middleware.Logger()` 与 `e.Logger.Fatal(...)`，请使用 `middleware.RequestLogger()` 与 `if err := e.Start(...); err != nil { alilog.Fatal(err) }`。
 
 ## Security 可复制模板
 
@@ -519,14 +524,14 @@ import (
     "your/module/bizerrors"
     "your/module/db"
 
-    "github.com/labstack/echo/v4"
+    "github.com/labstack/echo/v5"
     "github.com/redis/rueidis"
     "github.com/yb7/alilog"
 )
 
 const COOKIE_ACCESSTOKEN = "flashnews_access_token"
 
-func getAccessTokenInRequest(ctx echo.Context) string {
+func getAccessTokenInRequest(ctx *echo.Context) string {
     authorization := ctx.Request().Header.Get("Authorization")
     if len(authorization) != 0 {
         if !strings.HasPrefix(authorization, "Bearer ") {
@@ -541,8 +546,8 @@ func getAccessTokenInRequest(ctx echo.Context) string {
     return ""
 }
 
-func RequireAuth(requiredRoles ...Role) func(ctx echo.Context) (AuthCtx, error) {
-    return func(ctx echo.Context) (AuthCtx, error) {
+func RequireAuth(requiredRoles ...Role) func(ctx *echo.Context) (AuthCtx, error) {
+    return func(ctx *echo.Context) (AuthCtx, error) {
         if len(requiredRoles) == 1 && requiredRoles[0] == RoleAnonymous {
             return &authCtxImpl{
                 Context: ctx.Request().Context(),
@@ -904,14 +909,14 @@ import (
 
     "your/module/bizerrors"
 
-    "github.com/labstack/echo/v4"
+    "github.com/labstack/echo/v5"
 )
 
 var EchoInstance = echo.New()
 
 func init() {
-    EchoInstance.HTTPErrorHandler = func(err error, c echo.Context) {
-        if c.Response().Committed {
+    EchoInstance.HTTPErrorHandler = func(c *echo.Context, err error) {
+        if resp, _ := echo.UnwrapResponse(c.Response()); resp != nil && resp.Committed {
             return
         }
 
@@ -1031,7 +1036,7 @@ func MissingPermissions(roles ...string) *BizError {
 ```go
 package util
 
-import "github.com/labstack/echo/v4"
+import "github.com/labstack/echo/v5"
 
 var EchoInstance = echo.New()
 ```
@@ -1061,24 +1066,24 @@ import (
 
     "your/module/bizerrors"
 
-    "github.com/labstack/echo/v4"
+    "github.com/labstack/echo/v5"
     "github.com/yb7/alilog"
 )
 
 var StackSize = 4 << 10
 
 func EchoRecover(next echo.HandlerFunc) echo.HandlerFunc {
-    return func(c echo.Context) error {
+    return func(c *echo.Context) (err error) {
         defer func() {
             if r := recover(); r != nil {
                 if bizError, ok := r.(*bizerrors.BizError); ok {
-                    _ = c.JSON(bizError.HttpStatus, bizError)
+                    err = c.JSON(bizError.HttpStatus, bizError)
                     return
                 }
 
-                err, ok := r.(error)
+                recovered, ok := r.(error)
                 if !ok {
-                    err = fmt.Errorf("%v", r)
+                    recovered = fmt.Errorf("%v", r)
                 }
 
                 stack := make([]byte, StackSize)
@@ -1086,9 +1091,9 @@ func EchoRecover(next echo.HandlerFunc) echo.HandlerFunc {
                 reqDump, _ := httputil.DumpRequest(c.Request(), true)
 
                 alilog.Errorf("[PANIC RECOVER] Request\n%s", string(reqDump))
-                alilog.Errorf("[PANIC RECOVER] %v\n%s", err, string(stack[:length]))
+                alilog.Errorf("[PANIC RECOVER] %v\n%s", recovered, string(stack[:length]))
 
-                _ = c.Error(err)
+                err = recovered
             }
         }()
         return next(c)
@@ -1100,6 +1105,7 @@ func EchoRecover(next echo.HandlerFunc) echo.HandlerFunc {
 
 - 如果项目已经使用 Echo 官方 `middleware.Recover()`，也可以先复用官方版本；但当你需要统一输出业务错误和打印请求体时，优先使用该模板。
 - 若项目对日志敏感，请注意脱敏请求头和请求体中的敏感信息。
+- echo v5 移除了 `c.Error(...)`：恢复后必须把 `error` 通过中间件返回值抛回给框架，由 `EchoInstance.HTTPErrorHandler` 统一渲染响应。
 
 ### 7. service/demo.go
 
@@ -1120,7 +1126,7 @@ var Demo = &demoService{}
 type demoService struct{}
 
 type CreateDemoVo struct {
-    Name string `json:"name" validate:"required" desc:"演示名称"`
+    Name string `json:"name" validate:"required" jsonschema_description:"演示名称"`
 }
 
 type DemoVo struct {
@@ -1173,7 +1179,7 @@ func init() {
 }
 
 func (*DemoController) Create(ctx security.AuthCtx, req *struct {
-    Body *service.CreateDemoVo `desc:"创建Demo"`
+    Body *service.CreateDemoVo `jsonschema_description:"创建Demo"`
 }) (*service.DemoVo, error) {
     return service.Demo.Create(ctx, req.Body)
 }
@@ -1197,6 +1203,7 @@ func (*DemoController) Create(ctx security.AuthCtx, req *struct {
 package main
 
 import (
+    "net/http"
     "os"
 
     "your/module/config"
@@ -1204,8 +1211,7 @@ import (
     "your/module/db"
     "your/module/util"
 
-    "github.com/labstack/echo/v4"
-    "github.com/labstack/echo/v4/middleware"
+    "github.com/labstack/echo/v5/middleware"
     "github.com/yb7/alilog"
     "github.com/yb7/echoswg"
 )
@@ -1231,16 +1237,18 @@ func main() {
         CdnPrefix:   "https://img.cls.cn/statics/swagger-ui-4.10.3",
     })
 
-    e.Use(middleware.Logger())
+    e.Use(middleware.RequestLogger())
     e.Use(middleware.Gzip())
     e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
         AllowOrigins: []string{"*"},
-        AllowMethods: []string{echo.GET, echo.PUT, echo.POST, echo.DELETE},
+        AllowMethods: []string{http.MethodGet, http.MethodPut, http.MethodPost, http.MethodDelete},
     }))
     e.Use(util.EchoRecover)
 
     alilog.Infof("rest server started at port [%s]", config.C.Ports.Http)
-    e.Logger.Fatal(e.Start(config.C.Ports.Http))
+    if err := e.Start(config.C.Ports.Http); err != nil {
+        alilog.Fatal(err)
+    }
 }
 ```
 
@@ -1261,7 +1269,7 @@ go 1.24.0
 require (
     github.com/go-playground/validator/v10 v10.29.0
     github.com/jackc/pgx/v5 v5.4.1
-    github.com/labstack/echo/v4 v4.14.0
+    github.com/labstack/echo/v5 v5.1.1
     github.com/redis/rueidis v1.0.69
     github.com/spf13/viper v1.19.0
     github.com/yb7/alilog v1.1.12
@@ -1400,7 +1408,7 @@ func init() {
 }
 
 func (*DemoController) Create(ctx security.AuthCtx, req *struct {
-    Body *service.CreateDemoVo `desc:"创建Demo"`
+    Body *service.CreateDemoVo `jsonschema_description:"创建Demo"`
 }) (*service.DemoVo, error) {
     return service.Demo.Create(ctx, req.Body)
 }

@@ -4,12 +4,12 @@ import (
 	"net/http"
   "strings"
 
-  "github.com/labstack/echo/v4"
+  "github.com/labstack/echo/v5"
 )
 
 // GenApiDoc generate v3 api https://swagger.io/docs/specification/basic-structure/
-func GenApiDoc(title, description, version string) func(echo.Context) error {
-  return func(c echo.Context) error {
+func GenApiDoc(title, description, version string) func(*echo.Context) error {
+  return func(c *echo.Context) error {
     var tags []map[string]string
     for tag, desc := range SwaggerTags {
       tags = append(tags, map[string]string{

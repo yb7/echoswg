@@ -18,7 +18,7 @@ import (
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/schema"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 var (
@@ -51,14 +51,18 @@ type HandlerConfig struct {
 func BuildEchoHandler(fullRequestPath string, config HandlerConfig, handlers []interface{}) echo.HandlerFunc {
 	//inTypes, _, _ := validateChain(handlers)
 
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		// var requestObj reflect.Value
 		StartAt := time.Now()
 
 		var logError = func(err error) error {
 			if !config.DisableLog {
+				status := 0
+				if resp, _ := echo.UnwrapResponse(c.Response()); resp != nil {
+					status = resp.Status
+				}
 				fmt.Printf("%6s | %3d [%.3fs] | %s\n", c.Request().Method,
-					c.Response().Status, time.Now().Sub(StartAt).Seconds(),
+					status, time.Now().Sub(StartAt).Seconds(),
 					fullRequestPath)
 			}
 			return err
@@ -66,7 +70,7 @@ func BuildEchoHandler(fullRequestPath string, config HandlerConfig, handlers []i
 		var err error
 		//var c = NewGonextContextFromEcho(echoContext)
 		inParams := make(map[reflect.Type]reflect.Value)
-		inParams[reflect.TypeOf((*echo.Context)(nil)).Elem()] = reflect.ValueOf(c)
+		inParams[reflect.TypeOf((*echo.Context)(nil))] = reflect.ValueOf(c)
 		//for _, inType := range inTypes {
 		//	requestObj, err := newType(fullRequestPath, inType, c)
 		//	if err != nil {
@@ -99,7 +103,7 @@ func BuildEchoHandler(fullRequestPath string, config HandlerConfig, handlers []i
 	}
 }
 
-func callHandler(handler interface{}, inParams map[reflect.Type]reflect.Value, c echo.Context) ([]reflect.Value, error) {
+func callHandler(handler interface{}, inParams map[reflect.Type]reflect.Value, c *echo.Context) ([]reflect.Value, error) {
 	handlerRef := reflect.ValueOf(handler)
 	var params []reflect.Value
 	for i := 0; i < handlerRef.Type().NumIn(); i++ {
@@ -137,7 +141,7 @@ func callHandler(handler interface{}, inParams map[reflect.Type]reflect.Value, c
 func isErrorType(v reflect.Value) bool {
 	return v.MethodByName("Error").IsValid()
 }
-func newType(typ reflect.Type, c echo.Context) (reflect.Value, error) {
+func newType(typ reflect.Type, c *echo.Context) (reflect.Value, error) {
 	requestType := typ
 	if requestType.Kind() == reflect.Ptr {
 		requestType = requestType.Elem()
@@ -146,10 +150,9 @@ func newType(typ reflect.Type, c echo.Context) (reflect.Value, error) {
 
 	pathAndQueryParams := c.QueryParams()
 
-	for _, name := range c.ParamNames() {
-		value := c.Param(name)
-		for _, maybeName := range strings.Split(name, ",") {
-			pathAndQueryParams[maybeName] = []string{value}
+	for _, pv := range c.PathValues() {
+		for _, maybeName := range strings.Split(pv.Name, ",") {
+			pathAndQueryParams[maybeName] = []string{pv.Value}
 		}
 	}
 	decoder := schema.NewDecoder()
@@ -229,7 +232,7 @@ func newValidate() *validator.Validate {
 	return validate
 }
 
-func getValidator(c echo.Context) (ut.Translator, *validator.Validate) {
+func getValidator(c *echo.Context) (ut.Translator, *validator.Validate) {
 	for _, local := range acceptLanguage(c) {
 		if strings.HasPrefix(local, "zh") {
 			return zhTrans, zhValidate
@@ -240,7 +243,7 @@ func getValidator(c echo.Context) (ut.Translator, *validator.Validate) {
 
 // this is usually know or extracted from http 'Accept-Language' header
 // also see uni.FindTranslator(...)
-func acceptLanguage(c echo.Context) []string {
+func acceptLanguage(c *echo.Context) []string {
 	var defaultLanguage = []string{"zh"}
 	acceptLanguage := c.Request().Header.Get("Accept-Language")
 	if len(acceptLanguage) == 0 {

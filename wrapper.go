@@ -5,7 +5,7 @@ import (
 
 	"github.com/labstack/gommon/log"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 type ApiGroup interface {

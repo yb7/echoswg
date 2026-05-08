@@ -3,14 +3,14 @@ package util
 import (
     "net/http"
 
-    "github.com/labstack/echo/v4"
+    "github.com/labstack/echo/v5"
 
     "github.com/yb7/echoswg/example-skeleton/bizerrors"
 )
 
 func init() {
-    EchoInstance.HTTPErrorHandler = func(err error, c echo.Context) {
-        if c.Response().Committed {
+    EchoInstance.HTTPErrorHandler = func(c *echo.Context, err error) {
+        if resp, _ := echo.UnwrapResponse(c.Response()); resp != nil && resp.Committed {
             return
         }
 

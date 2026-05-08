@@ -4,8 +4,19 @@ import (
   "bytes"
   "io/ioutil"
   "net/http"
+  "reflect"
   "strings"
 )
+
+// descriptionFromTag extracts the field description from struct tags.
+// It prefers `jsonschema_description` (compatible with invopop/jsonschema and
+// other JSON-Schema generators) and falls back to `desc` for backwards compatibility.
+func descriptionFromTag(tag reflect.StructTag) string {
+  if v := strings.TrimSpace(tag.Get("jsonschema_description")); v != "" {
+    return v
+  }
+  return strings.TrimSpace(tag.Get("desc"))
+}
 
 type PathNames []string
 // PathNames func

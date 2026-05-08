@@ -6,7 +6,7 @@ import (
   "html/template"
   "strings"
 
-  "github.com/labstack/echo/v4"
+  "github.com/labstack/echo/v5"
 )
 
 //go:embed swagger-ui-4.10.3
@@ -56,13 +56,13 @@ func ServeSwagger(e *echo.Echo, config SwaggerConfig) *ServeSwaggerResult {
     fmt.Printf("loading template >> %s\n", tmpl.Name())
   }
 
-  indexHandler := func(c echo.Context) error {
+  indexHandler := func(c *echo.Context) error {
     apiDocUrl := config.ApiDocUrl
     if len(config.ApiDocUrl) == 0 {
       apiDocUrl = prefixed("/swagger/api-docs")
     }
     params := map[string]string{"url": apiDocUrl, "cdnPrefix": cdnPrefix}
-    if err := t.ExecuteTemplate(c.Response().Writer, "index.go.html", params); err != nil {
+    if err := t.ExecuteTemplate(c.Response(), "index.go.html", params); err != nil {
       return err
     }
     // c.Response().WriteHeader(http.StatusOK)
@@ -71,7 +71,7 @@ func ServeSwagger(e *echo.Echo, config SwaggerConfig) *ServeSwaggerResult {
   e.GET(prefixed("/swagger/index.html"), indexHandler)
   e.GET(prefixed("/swagger/index"), indexHandler)
   e.GET(prefixed("/swagger/api-docs"), GenApiDoc(config.Title, config.Description, config.Version))
-  e.GET(prefixed("/swagger"), func(c echo.Context) error {
+  e.GET(prefixed("/swagger"), func(c *echo.Context) error {
     c.Redirect(301, prefixed("/swagger/index.html"))
     return nil
   })

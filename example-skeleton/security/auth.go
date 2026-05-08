@@ -6,7 +6,7 @@ import (
     "fmt"
     "strings"
 
-    "github.com/labstack/echo/v4"
+    "github.com/labstack/echo/v5"
     "github.com/redis/rueidis"
     "github.com/yb7/alilog"
 
@@ -38,7 +38,7 @@ func (user UserPrincipal) FindRoleWithPrefix(rolePrefix string) (string, bool) {
     return "", false
 }
 
-func getAccessTokenInRequest(ctx echo.Context) string {
+func getAccessTokenInRequest(ctx *echo.Context) string {
     authorization := ctx.Request().Header.Get("Authorization")
     if authorization != "" {
         if !strings.HasPrefix(authorization, "Bearer ") {
@@ -53,8 +53,8 @@ func getAccessTokenInRequest(ctx echo.Context) string {
     return ""
 }
 
-func RequireAuth(requiredRoles ...Role) func(ctx echo.Context) (AuthCtx, error) {
-    return func(ctx echo.Context) (AuthCtx, error) {
+func RequireAuth(requiredRoles ...Role) func(ctx *echo.Context) (AuthCtx, error) {
+    return func(ctx *echo.Context) (AuthCtx, error) {
         if len(requiredRoles) == 1 && requiredRoles[0] == RoleAnonymous {
             return &authCtxImpl{Context: ctx.Request().Context()}, nil
         }

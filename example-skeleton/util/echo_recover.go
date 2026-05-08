@@ -5,7 +5,7 @@ import (
     "net/http/httputil"
     "runtime"
 
-    "github.com/labstack/echo/v4"
+    "github.com/labstack/echo/v5"
     "github.com/yb7/alilog"
 
     "github.com/yb7/echoswg/example-skeleton/bizerrors"
@@ -14,17 +14,17 @@ import (
 var StackSize = 4 << 10
 
 func EchoRecover(next echo.HandlerFunc) echo.HandlerFunc {
-    return func(c echo.Context) error {
+    return func(c *echo.Context) (err error) {
         defer func() {
             if r := recover(); r != nil {
                 if bizError, ok := r.(*bizerrors.BizError); ok {
-                    _ = c.JSON(bizError.HttpStatus, bizError)
+                    err = c.JSON(bizError.HttpStatus, bizError)
                     return
                 }
 
-                err, ok := r.(error)
+                recovered, ok := r.(error)
                 if !ok {
-                    err = fmt.Errorf("%v", r)
+                    recovered = fmt.Errorf("%v", r)
                 }
 
                 stack := make([]byte, StackSize)
@@ -32,9 +32,9 @@ func EchoRecover(next echo.HandlerFunc) echo.HandlerFunc {
                 reqDump, _ := httputil.DumpRequest(c.Request(), true)
 
                 alilog.Errorf("[PANIC RECOVER] Request\n%s", string(reqDump))
-                alilog.Errorf("[PANIC RECOVER] %v\n%s", err, string(stack[:length]))
+                alilog.Errorf("[PANIC RECOVER] %v\n%s", recovered, string(stack[:length]))
 
-                c.Error(err)
+                err = recovered
             }
         }()
         return next(c)
