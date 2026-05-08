@@ -76,7 +76,7 @@ func TestBuildSwaggerPath(t *testing.T) {
           },
         },
         "500": map[string]interface{} {
-          "description": "Interal Server Error",
+          "description": "Internal Server Error",
         },
       },
     },

@@ -100,7 +100,7 @@ func BuildSwaggerPath(pathDefine *SwaggerPathDefine) *SwaggerPath {
 		"responses": map[string]interface{}{
 			"200": successResponse,
 			"500": map[string]interface{}{
-				"description": "Interal Server Error",
+				"description": "Internal Server Error",
 			},
 		},
 	}
