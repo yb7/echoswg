@@ -36,7 +36,7 @@ func main() {
         UrlPrefix:   "/api",
         Title:       "Example Skeleton API",
         Description: "A standalone echoswg skeleton that does not depend on the example directory.",
-        CdnPrefix:   "https://img.cls.cn/statics/swagger-ui-4.10.3",
+        CdnPrefix:   "https://statics.stock001.com/swagger-ui-5.32.5",
     })
 
     e.Use(middleware.RequestLogger())

@@ -393,7 +393,7 @@ func main() {
         UrlPrefix:   "/api",
         Title:       "Your Project API",
         Description: "Your Project API",
-        CdnPrefix:   "https://img.cls.cn/statics/swagger-ui-4.10.3",
+        CdnPrefix:   "https://statics.stock001.com/swagger-ui-5.32.5",
     })
 
     e.Use(middleware.RequestLogger())
